@@ -7,6 +7,7 @@ fi
 
 case $1 in
     install)
+        python3 setup.py bdist_wheel
         pip install dist/ml*.whl --force-reinstall
         ;;
     list)
