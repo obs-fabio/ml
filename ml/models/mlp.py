@@ -4,12 +4,14 @@ from tensorflow import keras
 
 class MLP(ml.Base):
     def __init__(self, **kwargs):
+        super().__init__()
         self.n_hidden = kwargs.get('n_hidden', 10)
         self.learning_rate = kwargs.get('learning_rate', 0.01)
         self.random_state = kwargs.get('random_state', None)
         self.hidden_function = kwargs.get('hidden_function', 'tanh')
-        self.output_function = kwargs.get('hidden_function', 'tanh')
+        self.output_function = kwargs.get('output_function', 'tanh')
         self.kernel_initializer = kwargs.get('kernel_initializer', 0.01)
+        self.batch_size = kwargs.get('batch_size', 1)
 
     def get_loss(self, loss='cat_crossent'):
         if loss == 'cat_crossent':
@@ -91,7 +93,7 @@ class MLP(ml.Base):
 
         self.trn_history = self.model.fit(X, Y,
                              epochs=100,
-                             batch_size=X.shape[0],
+                             batch_size=round(self.batch_size * X.shape[0]),
                              callbacks=[earlyStopping], 
                              verbose=2,
                              validation_data=(val_X,
