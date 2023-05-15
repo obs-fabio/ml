@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 
 import ml.models.base as ml
 from ml.models.mlp import MLP
-from ml.metrics.metrics import get_scores
+import ml.metrics.metrics as metrics
 
 def get_files(directory, extension):
 	file_list = []
@@ -176,11 +176,6 @@ class Trainer(Base_trainer):
         for combination in combinations:
             parameter_dict = dict(zip(keys, combination))
 
-            evaluate_name = '%s_evaluate'%(hash_id)
-            for key, value in parameter_dict.items():
-                evaluate_name = evaluate_name + '_' + key + '_' + str(value)
-            evaluate_name = evaluate_name + '.pkl'
-
             n_folds = config['n_folds']
             for ifold in range(n_folds):
 
@@ -226,9 +221,9 @@ class Trainer(Base_trainer):
                 val_predictions = model.predict(trans_data[val_id, :])
                 all_predictions = model.predict(trans_data)
 
-                trn_scores = get_scores(df_target.iloc[trn_id, :], trn_predictions)
-                val_scores = get_scores(df_target.iloc[val_id, :], val_predictions)
-                all_scores = get_scores(df_target.iloc[:,:], all_predictions)
+                trn_scores = metrics.get_scores(df_target.iloc[trn_id, :], trn_predictions)
+                val_scores = metrics.get_scores(df_target.iloc[val_id, :], val_predictions)
+                all_scores = metrics.get_scores(df_target.iloc[:,:], all_predictions)
 
                 score = {
                     'trn_scores': trn_scores,
@@ -237,7 +232,6 @@ class Trainer(Base_trainer):
                     'trn_time': end_time-start_time
                 }
 
-                print(evaluate_filename)
                 with open(evaluate_filename, 'w') as f:
                     json.dump(score, f, indent=4)
 
@@ -246,5 +240,80 @@ class Trainer(Base_trainer):
         self.trainings['configs'][self.hash_map[hash_id]]['evaluate'] = True
         super().save()
 
+    def get_evaluation(self, hash_id = None):
+        if hash_id == None:
+            evaluations = {}
+            for key, value in self.hash_map.items():
+                evaluations[key] = self.get_evaluation(key)
+            return evaluations
+        
+        config = self.trainings['configs'][self.hash_map[hash_id]]
+
+        if not config['evaluate']:
+            print(hash_id, ": not evaluated")
+            raise UnboundLocalError(str(hash_id) +" it is not evaluated")
+
+        evaluate_path = config['evaluate_path']
+
+        params = config['constructor_params']
+        keys = params.keys()
+        values = params.values()
+
+        combinations = list(itertools.product(*values))
+
+        managers = {
+            'training': metrics.Manager(),
+            'validation': metrics.Manager(),
+            'all': metrics.Manager()
+        }
+
+        for combination in combinations:
+            parameter_dict = dict(zip(keys, combination))
+
+            n_folds = config['n_folds']
+            for ifold in range(n_folds):
+
+                evaluate_name = '%s_evaluate'%(hash_id)
+                for key, value in parameter_dict.items():
+                    evaluate_name = evaluate_name + '_' + key + '_' + str(value)
+                evaluate_name = evaluate_name + '_fold_%i_of_%i.pkl'%(ifold, n_folds)
+
+                evaluate_filename = os.path.join(evaluate_path, evaluate_name)
+
+                if not os.path.exists(evaluate_filename):
+                    continue
+
+                with open(evaluate_filename, 'r') as f:
+                    scores = json.load(f)
+
+                managers['trn_manager'].add_score(parameter_dict, scores['trn_scores'])
+                managers['val_manager'].add_score(parameter_dict, scores['val_scores'])
+                managers['all_manager'].add_score(parameter_dict, scores['all_scores'])
+
+        return managers
+
+    def export_scores(self, hash_id = None, valid_scores = None):
+        if hash_id == None:
+            for key, value in self.hash_map.items():
+                self.export_scores(key, valid_scores)
+            return
+        
+        config = self.trainings['configs'][self.hash_map[hash_id]]
+
+        metrics = self.get_evaluation(hash_id = hash_id)
+
+        for key, value in metrics.items():
+            value.export_score_tex(os.path.join(config['score_path'], '%s_%s_score.tex'%(config['id'], key)), valid_scores)
+
+    def do_all(self, hash_id = None, valid_scores = None):
+        if hash_id == None:
+            for key, value in self.hash_map.items():
+                self.do_all(key, valid_scores)
+            return
+
+        self.generate_cv_indexes(hash_id = hash_id)
+        self.generate_pipelines(hash_id = hash_id)
+        self.fit(hash_id = hash_id)
+        self.export_scores(hash_id = hash_id, valid_scores = valid_scores)
 
 
