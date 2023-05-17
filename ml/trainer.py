@@ -9,7 +9,7 @@ import itertools
 import time
 from abc import ABC, abstractmethod
 
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -88,20 +88,25 @@ class Trainer(Base_trainer):
 
         os.makedirs(config['cross_validation_file_path'], exist_ok=True)
 
+        df_data, df_target = self.get_data(hash_id)
+
+        indexes = np.array(range(df_data.shape[0]))
+
+        x_train, x_test, y_train, _ = train_test_split(indexes, df_target, test_size=config['test_subset'], shuffle=True, stratify=df_target, random_state=42)
+
         cv = StratifiedKFold(n_splits=config['n_folds'],
                             shuffle=True,
                             random_state=42)
 
-        df_data, df_target = self.get_data(hash_id)
 
-        for ifold, (trn_id, val_id) in enumerate(cv.split(df_data,df_target)):
+        for ifold, (trn_id, val_id) in enumerate(cv.split(df_data.loc[x_train,:], y_train)):
             cv_name ='%s_cross_validation_fold_%i_of_%i.pkl'%(
                             hash_id,
                             ifold,
                             config['n_folds'])
 
             with open(os.path.join(config['cross_validation_file_path'],cv_name),'wb') as file_handler:
-                pickle.dump([trn_id, val_id],file_handler)
+                pickle.dump([x_train[trn_id], x_train[val_id], x_test],file_handler)
 
         self.trainings['configs'][self.hash_map[hash_id]]['ids'] = True
         super().save()
@@ -124,14 +129,14 @@ class Trainer(Base_trainer):
         files = get_files(config['cross_validation_file_path'], '.pkl')
         for filename in files:
             with open(filename,'rb') as file_handler:
-                [trn_id, val_id] = pickle.load(file_handler)
+                [trn_id, val_id, _] = pickle.load(file_handler)
 
             if config['pipeline'] == 'StandardScaler':
                 pipe = Pipeline(steps=[("scaler", StandardScaler())])
                 pipe.fit(df_data.iloc[trn_id,:])
 
             elif config['pipeline'] == None:
-                pipe = Pipeline(steps=['passthrough', 'passthrough'])
+                pipe = Pipeline(steps=[('passthrough', 'passthrough')])
 
             else:
                 raise NotImplementedError("pipeline " + config['pipeline']) 
@@ -145,10 +150,10 @@ class Trainer(Base_trainer):
         self.trainings['configs'][self.hash_map[hash_id]]['pipelines'] = True
         super().save()
 
-    def fit(self, hash_id = None):
+    def fit(self, hash_id = None, test_mode=False):
         if hash_id == None:
             for key, value in self.hash_map.items():
-                self.fit(key)
+                self.fit(key, test_mode)
             return
         
         config = self.trainings['configs'][self.hash_map[hash_id]]
@@ -177,7 +182,7 @@ class Trainer(Base_trainer):
             parameter_dict = dict(zip(keys, combination))
 
             n_folds = config['n_folds']
-            for ifold in range(n_folds):
+            for ifold in range(n_folds if not test_mode else 1):
 
                 cv_name = '%s_cross_validation_fold_%i_of_%i.pkl'%(hash_id, ifold, n_folds)
                 pipe_name = '%s_pipeline_fold_%i_of_%i.pkl'%(hash_id, ifold, n_folds)
@@ -199,12 +204,15 @@ class Trainer(Base_trainer):
                     continue
 
                 with open(os.path.join(cv_file_path,cv_name),'rb') as file_handler:
-                    [trn_id, val_id] = pickle.load(file_handler)
+                    [trn_id, val_id, test_id] = pickle.load(file_handler)
 
                 with open(os.path.join(pipe_file_path,pipe_name),'rb') as file_handler:
                     pipe = joblib.load(file_handler)
 
                 trans_data = pipe.transform(df_data)
+
+                if isinstance(trans_data, pd.DataFrame):
+                    trans_data = trans_data.values
 
                 model = eval(model_constructor.format(*combination))
 
@@ -219,15 +227,18 @@ class Trainer(Base_trainer):
 
                 trn_predictions = model.predict(trans_data[trn_id, :])
                 val_predictions = model.predict(trans_data[val_id, :])
+                test_predictions = model.predict(trans_data[test_id, :])
                 all_predictions = model.predict(trans_data)
 
-                trn_scores = metrics.get_scores(df_target.iloc[trn_id, :], trn_predictions)
-                val_scores = metrics.get_scores(df_target.iloc[val_id, :], val_predictions)
-                all_scores = metrics.get_scores(df_target.iloc[:,:], all_predictions)
+                trn_scores = metrics.get_scores(df_target.values[trn_id, :], trn_predictions)
+                val_scores = metrics.get_scores(df_target.values[val_id, :], val_predictions)
+                test_scores = metrics.get_scores(df_target.values[test_id, :], test_predictions)
+                all_scores = metrics.get_scores(df_target.values, all_predictions)
 
                 score = {
                     'trn_scores': trn_scores,
                     'val_scores': val_scores,
+                    'test_scores': test_scores,
                     'all_scores': all_scores,
                     'trn_time': end_time-start_time
                 }
@@ -264,6 +275,7 @@ class Trainer(Base_trainer):
         managers = {
             'training': metrics.Manager(),
             'validation': metrics.Manager(),
+            'test': metrics.Manager(),
             'all': metrics.Manager()
         }
 
@@ -286,9 +298,10 @@ class Trainer(Base_trainer):
                 with open(evaluate_filename, 'r') as f:
                     scores = json.load(f)
 
-                managers['trn_manager'].add_score(parameter_dict, scores['trn_scores'])
-                managers['val_manager'].add_score(parameter_dict, scores['val_scores'])
-                managers['all_manager'].add_score(parameter_dict, scores['all_scores'])
+                managers['training'].add_score(parameter_dict, scores['trn_scores'])
+                managers['validation'].add_score(parameter_dict, scores['val_scores'])
+                managers['test'].add_score(parameter_dict, scores['test_scores'])
+                managers['all'].add_score(parameter_dict, scores['all_scores'])
 
         return managers
 
@@ -300,20 +313,22 @@ class Trainer(Base_trainer):
         
         config = self.trainings['configs'][self.hash_map[hash_id]]
 
+        os.makedirs(config['score_path'], exist_ok=True)
+
         metrics = self.get_evaluation(hash_id = hash_id)
 
         for key, value in metrics.items():
             value.export_score_tex(os.path.join(config['score_path'], '%s_%s_score.tex'%(config['id'], key)), valid_scores)
 
-    def do_all(self, hash_id = None, valid_scores = None):
+    def do_all(self, hash_id = None, valid_scores = None, test_mode=False):
         if hash_id == None:
             for key, value in self.hash_map.items():
-                self.do_all(key, valid_scores)
+                self.do_all(key, valid_scores, test_mode)
             return
 
         self.generate_cv_indexes(hash_id = hash_id)
         self.generate_pipelines(hash_id = hash_id)
-        self.fit(hash_id = hash_id)
+        self.fit(hash_id = hash_id, test_mode = test_mode)
         self.export_scores(hash_id = hash_id, valid_scores = valid_scores)
 
 

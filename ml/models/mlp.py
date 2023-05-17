@@ -12,6 +12,7 @@ class MLP(ml.Base):
         self.output_function = kwargs.get('output_function', 'tanh')
         self.kernel_initializer = kwargs.get('kernel_initializer', 0.01)
         self.batch_size = kwargs.get('batch_size', 1)
+        self.trn_history = None
 
     def get_loss(self, loss='cat_crossent'):
         if loss == 'cat_crossent':
@@ -48,26 +49,26 @@ class MLP(ml.Base):
         self.model.add(keras.Input(shape=(self.n_inputs,)))
         hidden_layer = keras.layers.Dense(units=self.n_hidden,
                                     activation=self.hidden_function,
-                                    kernel_initializer=keras.initializers.RandomNormal(stddev=self.kernel_initializer),
-                                    kernel_regularizer=keras.regularizers.L1L2(l1=1e-5, l2=1e-4),
-                                    bias_regularizer=keras.regularizers.L2(1e-4),
-                                    bias_initializer=keras.initializers.Zeros()
+                                    # kernel_initializer=keras.initializers.RandomNormal(stddev=self.kernel_initializer),
+                                    # kernel_regularizer=keras.regularizers.L1L2(l1=1e-5, l2=1e-4),
+                                    # bias_regularizer=keras.regularizers.L2(1e-4),
+                                    # bias_initializer=keras.initializers.Zeros()
                                    )
 
         self.model.add(hidden_layer)
 
         output_layer = keras.layers.Dense(units=self.n_outputs,
                                     activation=self.output_function,
-                                    kernel_initializer=keras.initializers.RandomNormal(stddev=self.kernel_initializer),
-                                    bias_initializer=keras.initializers.Zeros()
+                                    # kernel_initializer=keras.initializers.RandomNormal(stddev=self.kernel_initializer),
+                                    # bias_initializer=keras.initializers.Zeros()
                                    )
         self.model.add(output_layer)
 
-        lr_schedule = keras.optimizers.schedules.ExponentialDecay(initial_learning_rate = self.learning_rate,
-                                                                  decay_steps = 100,
-                                                                  decay_rate = 0.9)
+        # lr_schedule = keras.optimizers.schedules.ExponentialDecay(initial_learning_rate = self.learning_rate,
+        #                                                           decay_steps = 100,
+        #                                                           decay_rate = 0.9)
 
-        optimizer = self.get_optimizer(optimizer = 'adam', learning_rate = lr_schedule)
+        optimizer = self.get_optimizer(optimizer = 'adam')
 
         loss = self.get_loss(loss = 'mse')
 
@@ -92,7 +93,7 @@ class MLP(ml.Base):
         val_Y = kwargs.get('val_Y')
 
         self.trn_history = self.model.fit(X, Y,
-                             epochs=100,
+                             epochs=64,
                              batch_size=round(self.batch_size * X.shape[0]),
                              callbacks=[earlyStopping], 
                              verbose=2,

@@ -41,6 +41,11 @@ class Scores(Enum):
     CONFUSION_MATRIX = 6
 
 def get_scores(y_target, y_predict):
+    if len(y_target.shape) == 2 and y_target.shape[1] == 1:
+        y_target = np.squeeze(y_target)
+    if len(y_predict.shape) == 2 and y_predict.shape[1] == 1:
+        y_predict = np.squeeze(y_predict)
+
     return {
         Scores.AUC.value: auc(y_target, y_predict),
         Scores.SENSITIVITY.value: sensitivity(y_target, y_predict),
