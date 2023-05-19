@@ -1,4 +1,5 @@
 import os
+import json
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -42,16 +43,19 @@ def box_cox(x, lambda_range = 5):
 
     return mean, std, p_value, lambda_opt, transform
 
-def one_hot_enconding(input, output, columns):
+def one_hot_enconding(input, output, convert_columns, filt_columns = None):
     df = pd.read_csv(input)
+    if filt_columns is not None:
+        df = df[filt_columns]
 
-    for c, column in enumerate(columns):
+    for c, column in enumerate(convert_columns):
         if column in df.columns:
             id = df[column]
             colunas_dummy = pd.get_dummies(id, prefix='%d-Classe'%(c))
             df = pd.concat([colunas_dummy, df.drop(column, axis=1)], axis=1)
 
-    df.to_csv(output, index=False)
+    if output is not None:
+        df.to_csv(output, index=False)
     return df.columns
 
 
@@ -123,8 +127,8 @@ class Selector():
 
         for i in range(self.n_inputs):
             if fake_headers:
-                input_table[i+1][0] = "$x_%d$"%(i)
-                input_table[0][i+1] = "$x_%d$"%(i)
+                input_table[i+1][0] = "$x_{%d}$"%(i)
+                input_table[0][i+1] = "$x_{%d}$"%(i)
             else:
                 input_table[i+1][0] = self.inputs.columns[i]
                 input_table[0][i+1] = self.inputs.columns[i]
@@ -194,9 +198,11 @@ class Selector():
         filename, extension = os.path.splitext(rel_filename)
 
         out_df = pd.concat([self.inputs, self.outputs], axis=1)
-        print(os.path.join(output_path, filename + "_norm.csv"))
         out_df.to_csv(os.path.join(output_path, filename + "_norm.csv"), index=False)
+        print("gerado arquivo: ", os.path.join(output_path, filename + "_norm.csv"))
 
+        with open(os.path.join(output_path, filename + "_transformed.json"), 'w') as f:
+            json.dump(transform_results, f, indent=4)
         return transform_results
 
     def save(self, filename, input_labels, output_labels):

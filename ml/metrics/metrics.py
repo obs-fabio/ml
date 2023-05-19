@@ -47,53 +47,92 @@ def get_scores(y_target, y_predict):
         y_predict = np.squeeze(y_predict)
 
     return {
-        Scores.AUC.value: auc(y_target, y_predict),
-        Scores.SENSITIVITY.value: sensitivity(y_target, y_predict),
-        Scores.SPECIFICITY.value: specificity(y_target, y_predict),
-        Scores.SP_INDEX.value: sp_index(y_target, y_predict),
-        Scores.ACC.value: acc(y_target, y_predict),
-        Scores.CONFUSION_MATRIX.value: (confusion_matrix(y_target, y_predict)),
+        str(Scores.AUC): auc(y_target, y_predict),
+        str(Scores.SENSITIVITY): sensitivity(y_target, y_predict),
+        str(Scores.SPECIFICITY): specificity(y_target, y_predict),
+        str(Scores.SP_INDEX): sp_index(y_target, y_predict),
+        str(Scores.ACC): acc(y_target, y_predict),
+        str(Scores.CONFUSION_MATRIX): (confusion_matrix(y_target, y_predict)),
     }
 
 class Manager():
 
     def __init__(self):
-        self.score_dict = {}
+        self.dict = {}
         self.param_dict = {}
-        self.n_params = 0
-        self.values = {}
+        self.params = None
 
-    def add_score(self, params, score):
+    def add_score(self, params, score, model_path):
         params_hash = hash(tuple(params.items()))
+        self.params = params.keys()
 
-        if not params_hash in self.score_dict:
-            self.score_dict[params_hash] = []
+        if not params_hash in self.dict:
+            self.dict[params_hash]  = {
+                'params': params,
+                'scores': {},
+                'models': []
+            }
             self.param_dict[params_hash] = params
-            self.n_params = params.keys()
-
-            if not params_hash in self.values:
-                self.values[params_hash] = {
-                    'params': params,
-                    'scores': {}
-                }
-
-                for s in Scores:
-                    self.values[params_hash]['scores'][s] = []
 
             for s in Scores:
-                self.values[params_hash]['scores'][s].append(score[str(s.value)]*100)
+                self.dict[params_hash]['scores'][s] = []
 
-        self.score_dict[params_hash].append(score)
+        for s in Scores:
+            if s == Scores.CONFUSION_MATRIX:
+                value = [v*100 for v in score[str(s)]]
+                self.dict[params_hash]['scores'][s].append(value)
+            else:
+                self.dict[params_hash]['scores'][s].append(score[str(s)]*100)
+            self.dict[params_hash]['models'].append(model_path)
 
-    def export_score_tex(self, filename, valid_scores = None):
+    def __str__(self) -> str:
+        table = self.get_table()
+
+        num_columns = len(table[0])
+        column_widths = [max(len(str(row[i])) for row in table) for i in range(num_columns)]
+
+        formatted_rows = []
+        for row in table:
+            formatted_row = [str(row[i]).ljust(column_widths[i]) for i in range(num_columns)]
+            formatted_rows.append('  '.join(formatted_row))
+
+        return '\n'.join(formatted_rows)
+    
+    def get_max_scores(self):
+        max = {}
+        for score in Scores:
+            if score.value <= Scores.ACC.value:
+                max[str(score)] = {
+                    "mean": -1,
+                    "std": -1,
+                    "index": 0,
+                    "params": None,
+                    "model": None
+                }
+
+        i = 0
+        for hash, dict_item in self.dict.items():
+            for score, values in dict_item['scores'].items():
+                if score.value <= Scores.ACC.value:
+                    if max[str(score)]["mean"] < np.mean(values):
+                        max[str(score)]["mean"] = np.mean(values)
+                        max[str(score)]["std"] = np.std(values)
+                        max[str(score)]["index"] = i
+                        max[str(score)]["params"] = dict_item["params"]
+                        max[str(score)]["model"] = dict_item["models"][i]
+            i = i +1
+
+        return max
+
+    def get_table(self, valid_scores = None, latex_format = False):
+
         if valid_scores == None:
             valid_scores = [score for score in Scores if score.value <= Scores.ACC.value]
 
-
-        table = [[None] * (len(self.n_params) + len(valid_scores)) for _ in range(len(self.score_dict)+1)]
+        table = [[None] * (len(self.params) + len(valid_scores)) for _ in range(len(self.dict)+1)]
 
         j = 0
-        for p, param in enumerate(self.n_params):
+        for p, param in enumerate(self.params):
             table[0][j] = str(param).replace('_', ' ')
             j = j + 1
 
@@ -102,22 +141,88 @@ class Manager():
             table[0][j] = score_str
             j = j + 1
 
+        max = self.get_max_scores()
+
         i = 1
-        for hash, value in self.values.items():
+        for hash, dict_item in self.dict.items():
             j = 0
 
-            for param_id, param_value in value['params'].items():
+            for param_id, param_value in dict_item['params'].items():
                 table[i][j] = str(param_value)
                 j = j+1
 
-            for score, values in value['scores'].items():
+            for score, values in dict_item['scores'].items():
                 if not score in valid_scores:
                     continue
+                
+                mean = np.mean(values)
+                std = np.std(values)
 
-                table[i][j] = '${:.2f} \\pm {:.2f}$'.format(np.mean(values), np.std(values))
+                if latex_format:
+                    if i == max[str(score)]["index"] + 1:
+                        table[i][j] = '\\textbf{' + '${:.2f} \\pm {:.2f}$'.format(mean, std) + "}"
+                    elif (mean + std) >= (max[str(score)]["mean"] - max[str(score)]["std"]):
+                        table[i][j] = '\\textit{' + '${:.2f} \\pm {:.2f}$'.format(mean, std) + "}"
+                    else:
+                        table[i][j] = '${:.2f} \\pm {:.2f}$'.format(mean, std)
+                else:
+                    table[i][j] = '{:.2f} +- {:.2f}'.format(mean, std)
                 j = j+1
 
             i = i+1
+
+        return table
+
+    def export_score_tex(self, filename, valid_scores = None):
+
+        table = self.get_table(valid_scores=valid_scores, latex_format=True)
+
+        with open(filename, 'w') as f:
+            f.write(tabulate(table, headers='firstrow', floatfmt=".2f", tablefmt='latex_raw'))
+
+    def get_table_confusion_matrix(self, params, latex_format=False):
+        params_hash = hash(tuple(params.items()))
+        tns = []
+        fps = []
+        fns = []
+        tps = []
+        for cm in self.dict[params_hash]['scores'][Scores.CONFUSION_MATRIX]:
+            tns.append(cm[0])
+            fps.append(cm[1])
+            fns.append(cm[2])
+            tps.append(cm[3])
+
+        table = [[None] * (2) for _ in range(2)]
+        table[0][0] = tps
+
+        if latex_format:
+            table[0][0] = '${:.2f} \\pm {:.2f}$'.format(np.mean(tns), np.std(tns))
+            table[0][1] = '${:.2f} \\pm {:.2f}$'.format(np.mean(fps), np.std(fps))
+            table[1][0] = '${:.2f} \\pm {:.2f}$'.format(np.mean(fns), np.std(fns))
+            table[1][1] = '${:.2f} \\pm {:.2f}$'.format(np.mean(tps), np.std(tps))
+        else:
+            table[0][0] = '{:.2f} +- {:.2f}'.format(np.mean(tns), np.std(tns))
+            table[0][1] = '{:.2f} +- {:.2f}'.format(np.mean(fps), np.std(fps))
+            table[1][0] = '{:.2f} +- {:.2f}'.format(np.mean(fns), np.std(fns))
+            table[1][1] = '{:.2f} +- {:.2f}'.format(np.mean(tps), np.std(tps))
+
+        return table
+
+    def str_confusion_matrix(self, params):
+        table = self.get_table_confusion_matrix(params)
+
+        num_columns = len(table[0])
+        column_widths = [max(len(str(row[i])) for row in table) for i in range(num_columns)]
+
+        formatted_rows = []
+        for row in table:
+            formatted_row = [str(row[i]).ljust(column_widths[i]) for i in range(num_columns)]
+            formatted_rows.append('  '.join(formatted_row))
+
+        return '\n'.join(formatted_rows)
+
+    def export_confusion_matrix_tex(self, params, filename):
+        table = self.get_table_confusion_matrix(params, latex_format=True)
 
         with open(filename, 'w') as f:
             f.write(tabulate(table, headers='firstrow', floatfmt=".2f", tablefmt='latex_raw'))

@@ -54,13 +54,11 @@ class Base_trainer(ABC):
     
     def get_data(self, hash_id):
         df = pd.read_csv(self.trainings['configs'][self.hash_map[hash_id]]['data_file'], sep=',')
-        output_index = df.columns.get_loc(self.trainings['configs'][self.hash_map[hash_id]]['last_input_column']) + 1
 
-        df_data = df[df.columns[:output_index]]
+        df_data = df[self.trainings['configs'][self.hash_map[hash_id]]['input_column']]
         df_target = df[[self.trainings['configs'][self.hash_map[hash_id]]['output_column']]]
 
         return df_data, df_target
-
 
 class Trainer(Base_trainer):
 
@@ -195,12 +193,12 @@ class Trainer(Base_trainer):
                 evaluate_name = '%s_evaluate'%(hash_id)
                 for key, value in parameter_dict.items():
                     evaluate_name = evaluate_name + '_' + key + '_' + str(value)
-                evaluate_name = evaluate_name + '_fold_%i_of_%i.pkl'%(ifold, n_folds)
+                evaluate_name = evaluate_name + '_fold_%i_of_%i.json'%(ifold, n_folds)
 
                 model_filename = os.path.join(model_path, model_name)
                 evaluate_filename = os.path.join(evaluate_path, evaluate_name)
 
-                if os.path.exists(model_filename) and os.path.exists(evaluate_filename):
+                if os.path.exists(model_filename) and os.path.exists(evaluate_filename) and not config['override']:
                     continue
 
                 with open(os.path.join(cv_file_path,cv_name),'rb') as file_handler:
@@ -264,6 +262,7 @@ class Trainer(Base_trainer):
             print(hash_id, ": not evaluated")
             raise UnboundLocalError(str(hash_id) +" it is not evaluated")
 
+        model_path = config['model_path']
         evaluate_path = config['evaluate_path']
 
         params = config['constructor_params']
@@ -285,11 +284,18 @@ class Trainer(Base_trainer):
             n_folds = config['n_folds']
             for ifold in range(n_folds):
 
+
+                model_name = '%s_model'%(hash_id)
+                for key, value in parameter_dict.items():
+                    model_name = model_name + '_' + key + '_' + str(value)
+                model_name = model_name + '_fold_%i_of_%i.pkl'%(ifold, n_folds)
+
                 evaluate_name = '%s_evaluate'%(hash_id)
                 for key, value in parameter_dict.items():
                     evaluate_name = evaluate_name + '_' + key + '_' + str(value)
-                evaluate_name = evaluate_name + '_fold_%i_of_%i.pkl'%(ifold, n_folds)
+                evaluate_name = evaluate_name + '_fold_%i_of_%i.json'%(ifold, n_folds)
 
+                model_filename = os.path.join(model_path, model_name)
                 evaluate_filename = os.path.join(evaluate_path, evaluate_name)
 
                 if not os.path.exists(evaluate_filename):
@@ -298,10 +304,10 @@ class Trainer(Base_trainer):
                 with open(evaluate_filename, 'r') as f:
                     scores = json.load(f)
 
-                managers['training'].add_score(parameter_dict, scores['trn_scores'])
-                managers['validation'].add_score(parameter_dict, scores['val_scores'])
-                managers['test'].add_score(parameter_dict, scores['test_scores'])
-                managers['all'].add_score(parameter_dict, scores['all_scores'])
+                managers['training'].add_score(parameter_dict.copy(), scores['trn_scores'].copy(), model_filename)
+                managers['validation'].add_score(parameter_dict.copy(), scores['val_scores'].copy(), model_filename)
+                managers['test'].add_score(parameter_dict.copy(), scores['test_scores'].copy(), model_filename)
+                managers['all'].add_score(parameter_dict.copy(), scores['all_scores'].copy(), model_filename)
 
         return managers
 
