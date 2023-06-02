@@ -9,12 +9,14 @@ import itertools
 import time
 from abc import ABC, abstractmethod
 
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils.class_weight import compute_class_weight
 
 import ml.models.base as ml
 from ml.models.mlp import MLP
+from ml.models.svm import SVM, KC
 import ml.metrics.metrics as metrics
 
 def get_files(directory, extension):
@@ -56,7 +58,7 @@ class Base_trainer(ABC):
         df = pd.read_csv(self.trainings['configs'][self.hash_map[hash_id]]['data_file'], sep=',')
 
         df_data = df[self.trainings['configs'][self.hash_map[hash_id]]['input_column']]
-        df_target = df[[self.trainings['configs'][self.hash_map[hash_id]]['output_column']]]
+        df_target = df[self.trainings['configs'][self.hash_map[hash_id]]['output_column']]
 
         return df_data, df_target
 
@@ -92,16 +94,20 @@ class Trainer(Base_trainer):
 
         x_train, x_test, y_train, _ = train_test_split(indexes, df_target, test_size=config['test_subset'], shuffle=True, stratify=df_target, random_state=42)
 
-        cv = StratifiedKFold(n_splits=config['n_folds'],
+        if config['n_repeats'] == 1:
+            cv = StratifiedKFold(n_splits=config['n_folds'],
                             shuffle=True,
                             random_state=42)
-
+        else:
+            cv = RepeatedStratifiedKFold(n_splits=config['n_folds'],
+                                     n_repeats=config['n_repeats'],
+                                     random_state=42)
 
         for ifold, (trn_id, val_id) in enumerate(cv.split(df_data.loc[x_train,:], y_train)):
             cv_name ='%s_cross_validation_fold_%i_of_%i.pkl'%(
                             hash_id,
                             ifold,
-                            config['n_folds'])
+                            config['n_folds']*config['n_repeats'])
 
             with open(os.path.join(config['cross_validation_file_path'],cv_name),'wb') as file_handler:
                 pickle.dump([x_train[trn_id], x_train[val_id], x_test],file_handler)
@@ -173,14 +179,29 @@ class Trainer(Base_trainer):
         values = params.values()
 
         combinations = list(itertools.product(*values))
+        n_folds = config['n_folds']*config['n_repeats']
 
         df_data, df_target = self.get_data(hash_id)
 
-        for combination in combinations:
+        n_iter = len(combinations) * n_folds
+        trn_start_time = time.time()
+        cont = 0
+
+        for c_id, combination in enumerate(combinations):
             parameter_dict = dict(zip(keys, combination))
 
-            n_folds = config['n_folds']
             for ifold in range(n_folds if not test_mode else 1):
+
+                print("running step", cont+1, " of ", n_iter)
+
+                if cont != 0:
+                    trn_end_time = time.time()
+                    elapsed_time = trn_end_time-trn_start_time
+                    remaining_time = (trn_end_time-trn_start_time)/cont*(n_iter-cont)
+                    print("\telapsed time: ", elapsed_time, " s - ", elapsed_time/3600, " h")
+                    print("\tremaining time: ", remaining_time, " s - ", remaining_time/3600, " h")
+
+                cont = cont + 1
 
                 cv_name = '%s_cross_validation_fold_%i_of_%i.pkl'%(hash_id, ifold, n_folds)
                 pipe_name = '%s_pipeline_fold_%i_of_%i.pkl'%(hash_id, ifold, n_folds)
@@ -207,31 +228,28 @@ class Trainer(Base_trainer):
                 with open(os.path.join(pipe_file_path,pipe_name),'rb') as file_handler:
                     pipe = joblib.load(file_handler)
 
-                trans_data = pipe.transform(df_data)
-
-                if isinstance(trans_data, pd.DataFrame):
-                    trans_data = trans_data.values
+                trans_data = pd.DataFrame(pipe.transform(df_data), columns = df_data.columns, index = np.array(df_data.index))
 
                 model = eval(model_constructor.format(*combination))
 
                 start_time = time.time()
-                model.fit(trans_data[trn_id,:],
-                          df_target.iloc[trn_id,:],
-                          val_X = trans_data[val_id, :],
-                          val_Y = df_target.iloc[val_id, :])
+                model.fit(trans_data.iloc[trn_id],
+                          df_target.iloc[trn_id],
+                          val_X = trans_data.iloc[val_id],
+                          val_Y = df_target.iloc[val_id])
                 end_time = time.time()
 
                 model.save(model_filename)
 
-                trn_predictions = model.predict(trans_data[trn_id, :])
-                val_predictions = model.predict(trans_data[val_id, :])
-                test_predictions = model.predict(trans_data[test_id, :])
+                trn_predictions = model.predict(trans_data.iloc[trn_id])
+                val_predictions = model.predict(trans_data.iloc[val_id])
+                test_predictions = model.predict(trans_data.iloc[test_id])
                 all_predictions = model.predict(trans_data)
 
-                trn_scores = metrics.get_scores(df_target.values[trn_id, :], trn_predictions)
-                val_scores = metrics.get_scores(df_target.values[val_id, :], val_predictions)
-                test_scores = metrics.get_scores(df_target.values[test_id, :], test_predictions)
-                all_scores = metrics.get_scores(df_target.values, all_predictions)
+                trn_scores = metrics.get_scores(df_target.iloc[trn_id], trn_predictions)
+                val_scores = metrics.get_scores(df_target.iloc[val_id], val_predictions)
+                test_scores = metrics.get_scores(df_target.iloc[test_id], test_predictions)
+                all_scores = metrics.get_scores(df_target, all_predictions)
 
                 score = {
                     'trn_scores': trn_scores,
@@ -281,7 +299,7 @@ class Trainer(Base_trainer):
         for combination in combinations:
             parameter_dict = dict(zip(keys, combination))
 
-            n_folds = config['n_folds']
+            n_folds = config['n_folds']*config['n_repeats']
             for ifold in range(n_folds):
 
 
@@ -337,4 +355,116 @@ class Trainer(Base_trainer):
         self.fit(hash_id = hash_id, test_mode = test_mode)
         self.export_scores(hash_id = hash_id, valid_scores = valid_scores)
 
+    def plot_predict_hist(self, hash_id, subset, score, save_file=None):
+
+        config = self.trainings['configs'][self.hash_map[hash_id]]
+
+        metrics = self.get_evaluation(hash_id=hash_id)
+
+        df_data, df_target = self.get_data(hash_id)
+
+        selection = metrics[subset].get_max_scores()[str(score)]
+
+        path, rel_filename = os.path.split(selection['model'])
+        filename, extension = os.path.splitext(rel_filename)
+
+        pipename = re.sub(r"_model_.*_fold", "_pipeline_fold", filename) + ".pkl"
+        pipe_file_path = config['pipeline_file_path']
+
+        with open(os.path.join(pipe_file_path, pipename),'rb') as file_handler:
+            pipe = joblib.load(file_handler)
+
+        trans_data = pipe.transform(df_data)
+
+        model = ml.Base.load(selection['model'])
+        model.plot_predict_hist(trans_data, df_target)
+
+    def get_evaluation_with_margin(self, hash_id, subset, score, margin=0.2):
+
+        config = self.trainings['configs'][self.hash_map[hash_id]]
+
+        cv_file_path = config['cross_validation_file_path']
+        pipe_file_path = config['pipeline_file_path']
+
+        metric = self.get_evaluation(hash_id=hash_id)
+
+        df_data, df_target = self.get_data(hash_id)
+
+        selection = metric[subset].get_max_scores()[str(score)]
+
+        path, rel_filename = os.path.split(selection['model'])
+        filename, extension = os.path.splitext(rel_filename)
+
+        cv_name = re.sub(r"_model_.*_fold", "_cross_validation_fold", filename) + ".pkl"
+        pipename = re.sub(r"_model_.*_fold", "_pipeline_fold", filename) + ".pkl"
+
+        with open(os.path.join(cv_file_path, cv_name),'rb') as file_handler:
+            [trn_id, val_id, test_id] = pickle.load(file_handler)
+            
+        with open(os.path.join(pipe_file_path, pipename),'rb') as file_handler:
+            pipe = joblib.load(file_handler)
+
+        trans_data = pipe.transform(df_data)
+        if isinstance(trans_data, pd.DataFrame):
+            trans_data = trans_data.values
+
+        model = ml.Base.load(selection['model'])
+
+        trn_predictions = model.predict(trans_data[trn_id, :], output_as_classifier=False)
+        val_predictions = model.predict(trans_data[val_id, :], output_as_classifier=False)
+        test_predictions = model.predict(trans_data[test_id, :], output_as_classifier=False)
+        all_predictions = model.predict(trans_data, output_as_classifier=False)
+
+        trn_target = df_target.values[trn_id, :]
+        val_target = df_target.values[val_id, :]
+        test_target = df_target.values[test_id, :]
+        all_target = df_target.values
+
+        trn_low_index = np.where(trn_predictions < margin)[0]
+        trn_high_index = np.where(trn_predictions > (1-margin))[0]
+        trn_index = np.concatenate((trn_low_index,trn_high_index))
+        val_low_index = np.where(val_predictions < margin)[0]
+        val_high_index = np.where(val_predictions > (1-margin))[0]
+        val_index = np.concatenate((val_low_index, val_high_index))
+        test_low_index = np.where(test_predictions < margin)[0]
+        test_high_index = np.where(test_predictions > (1-margin))[0]
+        test_index = np.concatenate((test_low_index, test_high_index))
+        all_low_index = np.where(all_predictions < margin)[0]
+        all_high_index = np.where(all_predictions > (1-margin))[0]
+        all_index = np.concatenate((all_low_index, all_high_index))
+
+        trn_target = trn_target[trn_index]
+        trn_predictions = trn_predictions[trn_index]
+        val_target = val_target[val_index]
+        val_predictions = val_predictions[val_index]
+        test_target = test_target[test_index]
+        test_predictions = test_predictions[test_index]
+        all_target = all_target[all_index]
+        all_predictions = all_predictions[all_index]
+
+        trn_predictions = (trn_predictions > 0.5).astype(int)
+        val_predictions = (val_predictions > 0.5).astype(int)
+        test_predictions = (test_predictions > 0.5).astype(int)
+        all_predictions = (all_predictions > 0.5).astype(int)
+
+        trn_scores = metrics.get_scores(trn_target, trn_predictions)
+        val_scores = metrics.get_scores(val_target, val_predictions)
+        test_scores = metrics.get_scores(test_target, test_predictions)
+        all_scores = metrics.get_scores(all_target, all_predictions)
+
+        score = {
+            'trn_scores': trn_scores,
+            'val_scores': val_scores,
+            'test_scores': test_scores,
+            'all_scores': all_scores,
+        }
+
+        in_margin = {
+            'trn_scores': [len(trn_index), len(trn_id)],
+            'val_scores': [len(val_index), len(val_id)],
+            'test_scores': [len(test_index), len(test_id)],
+            'all_scores': [len(all_index), len(trn_id) + len(val_id) + len(test_id)]
+        }
+
+        return score, in_margin, selection
 

@@ -11,6 +11,12 @@ def confusion_matrix(y_target, y_predict):
     tn, fp, fn, tp = cm(y_target, y_predict, normalize='true').ravel()
     return (tn, fp, fn, tp)
 
+def abs_confusion_matrix(y_target, y_predict):
+    tn, fp, fn, tp = confusion_matrix(y_target, y_predict)
+    ps = np.sum(y_target)
+    ns = np.sum(1-y_target)
+    return (tn * ns, fp * ns, fn * ps, tp * ps)
+
 def sensitivity(y_target, y_predict):
     tn, fp, fn, tp = confusion_matrix(y_target, y_predict)
     sensitivity = tp / (tp+fn)
@@ -39,6 +45,7 @@ class Scores(Enum):
     SP_INDEX = 4
     ACC = 5
     CONFUSION_MATRIX = 6
+    ABS_CONFUSION_MATRIX = 7
 
 def get_scores(y_target, y_predict):
     if len(y_target.shape) == 2 and y_target.shape[1] == 1:
@@ -53,6 +60,7 @@ def get_scores(y_target, y_predict):
         str(Scores.SP_INDEX): sp_index(y_target, y_predict),
         str(Scores.ACC): acc(y_target, y_predict),
         str(Scores.CONFUSION_MATRIX): (confusion_matrix(y_target, y_predict)),
+        str(Scores.ABS_CONFUSION_MATRIX): (abs_confusion_matrix(y_target, y_predict)),
     }
 
 class Manager():
@@ -223,6 +231,53 @@ class Manager():
 
     def export_confusion_matrix_tex(self, params, filename):
         table = self.get_table_confusion_matrix(params, latex_format=True)
+
+        with open(filename, 'w') as f:
+            f.write(tabulate(table, headers='firstrow', floatfmt=".2f", tablefmt='latex_raw'))
+
+    def get_table_abs_confusion_matrix(self, params, latex_format=False):
+        params_hash = hash(tuple(params.items()))
+        tns = []
+        fps = []
+        fns = []
+        tps = []
+        for cm in self.dict[params_hash]['scores'][Scores.ABS_CONFUSION_MATRIX]:
+            tns.append(cm[0])
+            fps.append(cm[1])
+            fns.append(cm[2])
+            tps.append(cm[3])
+
+        table = [[None] * (2) for _ in range(2)]
+        table[0][0] = tps
+
+        if latex_format:
+            table[0][0] = '${:f} \\pm {:f}$'.format(np.mean(tns), np.std(tns))
+            table[0][1] = '${:f} \\pm {:f}$'.format(np.mean(fps), np.std(fps))
+            table[1][0] = '${:f} \\pm {:f}$'.format(np.mean(fns), np.std(fns))
+            table[1][1] = '${:f} \\pm {:f}$'.format(np.mean(tps), np.std(tps))
+        else:
+            table[0][0] = '{:f} +- {:f}'.format(np.mean(tns), np.std(tns))
+            table[0][1] = '{:f} +- {:f}'.format(np.mean(fps), np.std(fps))
+            table[1][0] = '{:f} +- {:f}'.format(np.mean(fns), np.std(fns))
+            table[1][1] = '{:f} +- {:f}'.format(np.mean(tps), np.std(tps))
+
+        return table
+
+    def str_abs_confusion_matrix(self, params):
+        table = self.get_table_abs_confusion_matrix(params)
+
+        num_columns = len(table[0])
+        column_widths = [max(len(str(row[i])) for row in table) for i in range(num_columns)]
+
+        formatted_rows = []
+        for row in table:
+            formatted_row = [str(row[i]).ljust(column_widths[i]) for i in range(num_columns)]
+            formatted_rows.append('  '.join(formatted_row))
+
+        return '\n'.join(formatted_rows)
+
+    def export_abs_confusion_matrix_tex(self, params, filename):
+        table = self.get_table_abs_confusion_matrix(params, latex_format=True)
 
         with open(filename, 'w') as f:
             f.write(tabulate(table, headers='firstrow', floatfmt=".2f", tablefmt='latex_raw'))
