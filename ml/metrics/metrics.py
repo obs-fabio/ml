@@ -200,19 +200,26 @@ class Manager():
             fns.append(cm[2])
             tps.append(cm[3])
 
-        table = [[None] * (2) for _ in range(2)]
-        table[0][0] = tps
+        table = [[''] * (4) for _ in range(4)]
+        table[0][2] = 'Predito'
+        table[0][3] = ''
+        table[1][2] = 'Não'
+        table[1][3] = 'Sim'
+        table[2][0] = 'Real'
+        table[3][0] = ''
+        table[2][1] = 'Não'
+        table[3][1] = 'Sim'
 
         if latex_format:
-            table[0][0] = '${:.2f} \\pm {:.2f}$'.format(np.mean(tns), np.std(tns))
-            table[0][1] = '${:.2f} \\pm {:.2f}$'.format(np.mean(fps), np.std(fps))
-            table[1][0] = '${:.2f} \\pm {:.2f}$'.format(np.mean(fns), np.std(fns))
-            table[1][1] = '${:.2f} \\pm {:.2f}$'.format(np.mean(tps), np.std(tps))
+            table[2][2] = '${:.2f} \\pm {:.2f}$'.format(np.mean(tns), np.std(tns))
+            table[2][3] = '${:.2f} \\pm {:.2f}$'.format(np.mean(fps), np.std(fps))
+            table[3][2] = '${:.2f} \\pm {:.2f}$'.format(np.mean(fns), np.std(fns))
+            table[3][3] = '${:.2f} \\pm {:.2f}$'.format(np.mean(tps), np.std(tps))
         else:
-            table[0][0] = '{:.2f} +- {:.2f}'.format(np.mean(tns), np.std(tns))
-            table[0][1] = '{:.2f} +- {:.2f}'.format(np.mean(fps), np.std(fps))
-            table[1][0] = '{:.2f} +- {:.2f}'.format(np.mean(fns), np.std(fns))
-            table[1][1] = '{:.2f} +- {:.2f}'.format(np.mean(tps), np.std(tps))
+            table[2][2] = '{:.2f} +- {:.2f}'.format(np.mean(tns), np.std(tns))
+            table[2][3] = '{:.2f} +- {:.2f}'.format(np.mean(fps), np.std(fps))
+            table[3][2] = '{:.2f} +- {:.2f}'.format(np.mean(fns), np.std(fns))
+            table[3][3] = '{:.2f} +- {:.2f}'.format(np.mean(tps), np.std(tps))
 
         return table
 
@@ -247,19 +254,26 @@ class Manager():
             fns.append(cm[2])
             tps.append(cm[3])
 
-        table = [[None] * (2) for _ in range(2)]
-        table[0][0] = tps
+        table = [[''] * (4) for _ in range(4)]
+        table[0][2] = 'Predito'
+        table[0][3] = ''
+        table[1][2] = 'Não'
+        table[1][3] = 'Sim'
+        table[2][0] = 'Real'
+        table[3][0] = ''
+        table[2][1] = 'Não'
+        table[3][1] = 'Sim'
 
         if latex_format:
-            table[0][0] = '${:f} \\pm {:f}$'.format(np.mean(tns), np.std(tns))
-            table[0][1] = '${:f} \\pm {:f}$'.format(np.mean(fps), np.std(fps))
-            table[1][0] = '${:f} \\pm {:f}$'.format(np.mean(fns), np.std(fns))
-            table[1][1] = '${:f} \\pm {:f}$'.format(np.mean(tps), np.std(tps))
+            table[2][2] = '${:f} \\pm {:f}$'.format(np.mean(tns), np.std(tns))
+            table[2][3] = '${:f} \\pm {:f}$'.format(np.mean(fps), np.std(fps))
+            table[3][2] = '${:f} \\pm {:f}$'.format(np.mean(fns), np.std(fns))
+            table[3][3] = '${:f} \\pm {:f}$'.format(np.mean(tps), np.std(tps))
         else:
-            table[0][0] = '{:f} +- {:f}'.format(np.mean(tns), np.std(tns))
-            table[0][1] = '{:f} +- {:f}'.format(np.mean(fps), np.std(fps))
-            table[1][0] = '{:f} +- {:f}'.format(np.mean(fns), np.std(fns))
-            table[1][1] = '{:f} +- {:f}'.format(np.mean(tps), np.std(tps))
+            table[2][2] = '{:f} +- {:f}'.format(np.mean(tns), np.std(tns))
+            table[2][3] = '{:f} +- {:f}'.format(np.mean(fps), np.std(fps))
+            table[3][2] = '{:f} +- {:f}'.format(np.mean(fns), np.std(fns))
+            table[3][3] = '{:f} +- {:f}'.format(np.mean(tps), np.std(tps))
 
         return table
 

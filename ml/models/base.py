@@ -30,8 +30,10 @@ class Base(ABC):
 
     def plot_predict_hist(self, X, Y, save_file=None, **kwargs):
 
+        Y = Y.values
         predictions = self.predict(X, output_as_classifier=False)
-        errors = np.abs(predictions - Y)
+
+        errors = np.abs(np.squeeze(predictions) - Y)
 
         positive_errors = errors[Y == 1]
         negative_errors = errors[Y == 0]

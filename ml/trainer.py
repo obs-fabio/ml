@@ -17,6 +17,7 @@ from sklearn.utils.class_weight import compute_class_weight
 import ml.models.base as ml
 from ml.models.mlp import MLP
 from ml.models.svm import SVM, KC
+from ml.models.forest import RandomForest
 import ml.metrics.metrics as metrics
 
 def get_files(directory, extension):
@@ -415,9 +416,9 @@ class Trainer(Base_trainer):
         test_predictions = model.predict(trans_data[test_id, :], output_as_classifier=False)
         all_predictions = model.predict(trans_data, output_as_classifier=False)
 
-        trn_target = df_target.values[trn_id, :]
-        val_target = df_target.values[val_id, :]
-        test_target = df_target.values[test_id, :]
+        trn_target = df_target.values[trn_id]
+        val_target = df_target.values[val_id]
+        test_target = df_target.values[test_id]
         all_target = df_target.values
 
         trn_low_index = np.where(trn_predictions < margin)[0]
