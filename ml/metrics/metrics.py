@@ -6,6 +6,7 @@ import numpy as np
 import os
 import itertools
 from tabulate import tabulate
+from ml.models.base import Base
 
 def confusion_matrix(y_target, y_predict):
     tn, fp, fn, tp = cm(y_target, y_predict, normalize='true').ravel()
@@ -131,6 +132,11 @@ class Manager():
             i = i +1
 
         return max
+    
+    def get_best_model(self, score_criterion: str = Scores.ACC.value):
+        folds_scores = self.get_max_scores()
+
+        return Base.load(folds_scores[score_criterion]["model"]).model
 
     def get_table(self, valid_scores = None, latex_format = False):
 
