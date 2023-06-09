@@ -1,7 +1,6 @@
 import ml.models.base as ml
 
 import numpy as np
-from sklearn.utils.class_weight import compute_class_weight
 
 from tensorflow import keras
 
@@ -49,9 +48,6 @@ class MLP(ml.Base):
         val_X = kwargs.get('val_X')
         val_Y = kwargs.get('val_Y')
 
-        weights = compute_class_weight('balanced', classes = np.unique(Y), y = list(Y))
-        class_weight = {0: weights[0], 1: weights[1]}
-
         if self.best_model :
             checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=self.best_model,
                                                             monitor='val_loss',
@@ -62,7 +58,7 @@ class MLP(ml.Base):
                                 y=Y,
                                 epochs=self.epochs,
                                 batch_size=round(self.batch_size*X.shape[0]),
-                                class_weight=class_weight,
+                                class_weight=self.get_class_weight(Y),
                                 callbacks=[checkpoint_callback],
                                 verbose=0,
                                 validation_data=(val_X,val_Y))

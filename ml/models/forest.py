@@ -7,15 +7,20 @@ class RandomForest(ml.Base):
     def __init__(self, **kwargs):
         super().__init__()
         self.n_estimators = kwargs.get('n_estimators', 100)
+        self.criterion = kwargs.get('criterion', "gini")
+        self.max_depth = kwargs.get('max_depth', None)
+        self.max_features = kwargs.get('max_features', None)
         self.random_state = kwargs.get('random_state', 42)
-        self.class_weight = kwargs.get('class_weight', 'balanced')
         self.model = None
 
     def fit(self, X, Y, **kwargs):
         self.model = RandomForestClassifier(
             n_estimators=self.n_estimators,
             random_state=self.random_state,
-            class_weight=self.class_weight
+            max_depth=self.max_depth,
+            criterion=self.criterion,
+            max_features=self.max_features,
+            class_weight=self.get_class_weight(Y)
         )
         self.model.fit(X, Y)
 

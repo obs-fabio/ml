@@ -23,7 +23,7 @@ class SVM(ml.Base):
                     degree=self.degree,
                     gamma=self.gamma,
                     random_state=42,
-                    class_weight={0:1.5, 1:0.5},
+                    class_weight=self.get_class_weight(Y),
                     verbose=self.verbose)
         else:
             self.model = NuSVC(nu=self.nu,
@@ -31,7 +31,7 @@ class SVM(ml.Base):
                     degree=self.degree,
                     gamma=self.gamma,
                     random_state=42,
-                    class_weight={0:1.5, 1:0.5},
+                    class_weight=self.get_class_weight(Y),
                     verbose=self.verbose)
         self.model.fit(X,Y)
 

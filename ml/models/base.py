@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.utils.class_weight import compute_class_weight
 
 class Base(ABC):
     def __init__(self):
@@ -27,6 +28,11 @@ class Base(ABC):
     def load(file_path):
         with open(file_path, "rb") as f:
             return pickle.load(f)
+
+    def get_class_weight(self,Y):
+        weights = compute_class_weight('balanced', classes = np.unique(Y), y = list(Y))
+        class_weight = {0: weights[0], 1: weights[1]}
+        return class_weight
 
     def plot_predict_hist(self, X, Y, save_file=None, **kwargs):
 

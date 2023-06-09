@@ -28,6 +28,14 @@ def specificity(y_target, y_predict):
     specificity = tn / (tn+fp)
     return specificity
 
+def precision(y_target, y_predict):
+    tn, fp, fn, tp = confusion_matrix(y_target, y_predict)
+    return tp / (tp+fp)
+
+def false_alarm(y_target, y_predict):
+    tn, fp, fn, tp = confusion_matrix(y_target, y_predict)
+    return fp / (tn+fp)
+
 def auc(y_target,y_predict):
     return roc_auc_score(y_target, y_predict)
 
@@ -44,9 +52,11 @@ class Scores(Enum):
     SENSITIVITY = 2
     SPECIFICITY = 3
     SP_INDEX = 4
-    ACC = 5
-    CONFUSION_MATRIX = 6
-    ABS_CONFUSION_MATRIX = 7
+    PRECISION = 5
+    FALSE_ALARM = 6
+    ACC = 7
+    CONFUSION_MATRIX = 8
+    ABS_CONFUSION_MATRIX = 9
 
 def get_scores(y_target, y_predict):
     if len(y_target.shape) == 2 and y_target.shape[1] == 1:
@@ -59,6 +69,8 @@ def get_scores(y_target, y_predict):
         str(Scores.SENSITIVITY): sensitivity(y_target, y_predict),
         str(Scores.SPECIFICITY): specificity(y_target, y_predict),
         str(Scores.SP_INDEX): sp_index(y_target, y_predict),
+        str(Scores.PRECISION): precision(y_target, y_predict),
+        str(Scores.FALSE_ALARM): false_alarm(y_target, y_predict),
         str(Scores.ACC): acc(y_target, y_predict),
         str(Scores.CONFUSION_MATRIX): (confusion_matrix(y_target, y_predict)),
         str(Scores.ABS_CONFUSION_MATRIX): (abs_confusion_matrix(y_target, y_predict)),
@@ -141,7 +153,8 @@ class Manager():
     def get_table(self, valid_scores = None, latex_format = False):
 
         if valid_scores == None:
-            valid_scores = [score for score in Scores if score.value <= Scores.ACC.value]
+            valid_scores = [Scores.AUC, Scores.PRECISION, Scores.FALSE_ALARM, Scores.ACC]
+            # valid_scores = [score for score in Scores if score.value <= Scores.ACC.value]
 
         table = [[None] * (len(self.params) + len(valid_scores)) for _ in range(len(self.dict)+1)]
 
@@ -174,9 +187,9 @@ class Manager():
 
                 if latex_format:
                     if i == max[str(score)]["index"] + 1:
-                        table[i][j] = '\\textbf{' + '${:.2f} \\pm {:.2f}$'.format(mean, std) + "}"
+                        table[i][j] = '$\\mathbf{' + '{:.2f} \\pm {:.2f}'.format(mean, std) + "}$"
                     elif (mean + std) >= (max[str(score)]["mean"] - max[str(score)]["std"]):
-                        table[i][j] = '\\textit{' + '${:.2f} \\pm {:.2f}$'.format(mean, std) + "}"
+                        table[i][j] = '$\\textit{' + '{:.2f}'.format(mean) + '} \\pm \\textit{' + '{:.2f}'.format(std) + "}$"
                     else:
                         table[i][j] = '${:.2f} \\pm {:.2f}$'.format(mean, std)
                 else:

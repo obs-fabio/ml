@@ -58,7 +58,6 @@ def one_hot_enconding(input, output, convert_columns, filt_columns = None):
         df.to_csv(output, index=False)
     return df.columns
 
-
 class Selector():
 
     def __init__(self, filename, input_labels, output_labels) -> None:
@@ -106,6 +105,10 @@ class Selector():
         for j in range(self.n_outputs):
             output_table[0][j+1] = self.outputs.columns[j]
 
+        for row in output_table:
+            for i in range(len(row)):
+                row[i] = row[i].replace(".", ",")
+
         with open(filename, 'w') as f:
             f.write(tabulate(output_table, headers='firstrow', floatfmt=".2f", tablefmt='latex_raw'))
 
@@ -132,6 +135,10 @@ class Selector():
             else:
                 input_table[i+1][0] = self.inputs.columns[i]
                 input_table[0][i+1] = self.inputs.columns[i]
+
+        for row in input_table:
+            for i in range(len(row)):
+                row[i] = row[i].replace(".", ",")
 
         with open(filename, 'w') as f:
             f.write(tabulate(input_table, headers='firstrow', floatfmt=".2f", tablefmt='latex_raw'))
