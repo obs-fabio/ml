@@ -13,6 +13,8 @@ class SVM(ml.Base):
         self.nu = kwargs.get('nu', None)
         self.degree = kwargs.get('degree', 3)
         self.gamma = kwargs.get('gamma', 'scale')
+        self.tol = kwargs.get('tol', 1e-3)
+        self.coef0 = kwargs.get('coef0', 0)
         self.model = None
         self.verbose = 0
 
@@ -22,6 +24,8 @@ class SVM(ml.Base):
                     kernel=self.kernel,
                     degree=self.degree,
                     gamma=self.gamma,
+                    tol=self.tol,
+                    coef0=self.coef0,
                     random_state=42,
                     class_weight=self.get_class_weight(Y),
                     verbose=self.verbose)
@@ -30,6 +34,8 @@ class SVM(ml.Base):
                     kernel=self.kernel,
                     degree=self.degree,
                     gamma=self.gamma,
+                    tol=self.tol,
+                    coef0=self.coef0,
                     random_state=42,
                     class_weight=self.get_class_weight(Y),
                     verbose=self.verbose)

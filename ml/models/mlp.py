@@ -70,8 +70,8 @@ class MLP(ml.Base):
                                 y=Y,
                                 epochs=self.epochs,
                                 batch_size=round(self.batch_size*X.shape[0]),
-                                class_weight=class_weight,
-                                verbose=2,
+                                class_weight=self.get_class_weight(Y),
+                                verbose=0,
                                 validation_data=(val_X,val_Y))
 
 

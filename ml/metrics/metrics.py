@@ -82,6 +82,21 @@ class Manager():
         self.dict = {}
         self.param_dict = {}
         self.params = None
+        self.metric_label = {
+            str(Scores.AUC): "AUC",
+            str(Scores.SENSITIVITY): "Sensibilidade",
+            str(Scores.SPECIFICITY): "Especificidade",
+            str(Scores.SP_INDEX): "índice SP",
+            str(Scores.PRECISION): "Precisão",
+            str(Scores.FALSE_ALARM): "Falso alarme",
+            str(Scores.ACC): "Acurácia",
+            str(Scores.CONFUSION_MATRIX): "Matriz de Confusão",
+            str(Scores.ABS_CONFUSION_MATRIX): "Matriz de Confusão"
+        }
+
+    def get(self, params):
+        params_hash = hash(tuple(params.items()))
+        return self.dict[params_hash]
 
     def add_score(self, params, score, model_path):
         params_hash = hash(tuple(params.items()))
@@ -134,7 +149,14 @@ class Manager():
         i = 0
         for hash, dict_item in self.dict.items():
             for score, values in dict_item['scores'].items():
-                if score.value <= Scores.ACC.value:
+                if score == Scores.FALSE_ALARM:
+                    if (max[str(score)]["mean"] > np.mean(values)) or i == 0:
+                        max[str(score)]["mean"] = np.mean(values)
+                        max[str(score)]["std"] = np.std(values)
+                        max[str(score)]["index"] = i
+                        max[str(score)]["params"] = dict_item["params"]
+                        max[str(score)]["model"] = dict_item["models"][i]
+                elif score.value <= Scores.ACC.value:
                     if max[str(score)]["mean"] < np.mean(values):
                         max[str(score)]["mean"] = np.mean(values)
                         max[str(score)]["std"] = np.std(values)
@@ -156,7 +178,7 @@ class Manager():
             valid_scores = [Scores.AUC, Scores.PRECISION, Scores.FALSE_ALARM, Scores.ACC]
             # valid_scores = [score for score in Scores if score.value <= Scores.ACC.value]
 
-        table = [[None] * (len(self.params) + len(valid_scores)) for _ in range(len(self.dict)+1)]
+        table = [[''] * (len(self.params) + len(valid_scores)) for _ in range(len(self.dict)+1)]
 
         j = 0
         for p, param in enumerate(self.params):
@@ -164,8 +186,8 @@ class Manager():
             j = j + 1
 
         for score in valid_scores:
-            score_str = str(score).split(".")[-1].lower().replace('_', ' ')
-            table[0][j] = score_str
+            # score_str = str(score).split(".")[-1].lower().replace('_', ' ')
+            table[0][j] = self.metric_label[str(score)]
             j = j + 1
 
         max = self.get_max_scores()
@@ -186,18 +208,29 @@ class Manager():
                 std = np.std(values)
 
                 if latex_format:
-                    if i == max[str(score)]["index"] + 1:
-                        table[i][j] = '$\\mathbf{' + '{:.2f} \\pm {:.2f}'.format(mean, std) + "}$"
-                    elif (mean + std) >= (max[str(score)]["mean"] - max[str(score)]["std"]):
-                        table[i][j] = '$\\textit{' + '{:.2f}'.format(mean) + '} \\pm \\textit{' + '{:.2f}'.format(std) + "}$"
+                    if score == Scores.FALSE_ALARM:
+                        if i == max[str(score)]["index"] + 1:
+                            table[i][j] = '$\\mathbf{' + '{:.2f} \\pm {:.2f}'.format(mean, std) + "}$"
+                        elif (mean - std) <= (max[str(score)]["mean"] + max[str(score)]["std"]):
+                            table[i][j] = '$\\textit{' + '{:.2f}'.format(mean) + '} \\pm \\textit{' + '{:.2f}'.format(std) + "}$"
+                        else:
+                            table[i][j] = '${:.2f} \\pm {:.2f}$'.format(mean, std)
                     else:
-                        table[i][j] = '${:.2f} \\pm {:.2f}$'.format(mean, std)
+                        if i == max[str(score)]["index"] + 1:
+                            table[i][j] = '$\\mathbf{' + '{:.2f} \\pm {:.2f}'.format(mean, std) + "}$"
+                        elif (mean + std) >= (max[str(score)]["mean"] - max[str(score)]["std"]):
+                            table[i][j] = '$\\textit{' + '{:.2f}'.format(mean) + '} \\pm \\textit{' + '{:.2f}'.format(std) + "}$"
+                        else:
+                            table[i][j] = '${:.2f} \\pm {:.2f}$'.format(mean, std)
                 else:
                     table[i][j] = '{:.2f} +- {:.2f}'.format(mean, std)
                 j = j+1
 
             i = i+1
 
+        for row in table:
+            for i in range(len(row)):
+                row[i] = row[i].replace(".", ",")
         return table
 
     def export_score_tex(self, filename, valid_scores = None):
@@ -239,6 +272,10 @@ class Manager():
             table[2][3] = '{:.2f} +- {:.2f}'.format(np.mean(fps), np.std(fps))
             table[3][2] = '{:.2f} +- {:.2f}'.format(np.mean(fns), np.std(fns))
             table[3][3] = '{:.2f} +- {:.2f}'.format(np.mean(tps), np.std(tps))
+
+        for row in table:
+            for i in range(len(row)):
+                row[i] = row[i].replace(".", ",")
 
         return table
 
@@ -294,6 +331,9 @@ class Manager():
             table[3][2] = '{:f} +- {:f}'.format(np.mean(fns), np.std(fns))
             table[3][3] = '{:f} +- {:f}'.format(np.mean(tps), np.std(tps))
 
+        for row in table:
+            for i in range(len(row)):
+                row[i] = row[i].replace(".", ",")
         return table
 
     def str_abs_confusion_matrix(self, params):
@@ -313,4 +353,4 @@ class Manager():
         table = self.get_table_abs_confusion_matrix(params, latex_format=True)
 
         with open(filename, 'w') as f:
-            f.write(tabulate(table, headers='firstrow', floatfmt=".2f", tablefmt='latex_raw'))
+            f.write(tabulate(table, headers='firstrow', tablefmt='latex_raw'))
