@@ -11,7 +11,8 @@ from abc import ABC, abstractmethod
 
 from sklearn.model_selection import StratifiedKFold, RepeatedStratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, FunctionTransformer, PowerTransformer
+
 from sklearn.utils.class_weight import compute_class_weight
 
 import ml.models.base as ml
@@ -28,6 +29,8 @@ def get_files(directory, extension):
 				file_list.append(os.path.join(root, file))
 	return file_list
 
+def boxcox_maximum(X):
+    return np.maximum(X, 1e-10)
 
 class Base_trainer(ABC):
     def __init__(self, control_file):
@@ -139,6 +142,15 @@ class Trainer(Base_trainer):
             if config['pipeline'] == 'StandardScaler':
                 pipe = Pipeline(steps=[("scaler", StandardScaler())])
                 pipe.fit(df_data.iloc[trn_id,:])
+            elif config['pipeline'] == 'MinMaxScaler':
+                pipe = Pipeline(steps=[("scaler", MinMaxScaler())])
+                pipe.fit(df_data.iloc[trn_id, :])
+            elif config['pipeline'] == 'BoxCox':
+                pipe = Pipeline(steps=[
+                    ("preprocess", FunctionTransformer(boxcox_maximum)),
+                    ("scaler", PowerTransformer(method='box-cox'))
+                ])
+                pipe.fit(df_data.iloc[trn_id, :])
 
             elif config['pipeline'] == None:
                 pipe = Pipeline(steps=[('passthrough', 'passthrough')])
