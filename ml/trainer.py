@@ -481,3 +481,79 @@ class Trainer(Base_trainer):
 
         return score, in_margin, selection
 
+    def get_evaluation_with_offset(self, hash_id, subset, score, offset=0):
+
+        config = self.trainings['configs'][self.hash_map[hash_id]]
+
+        cv_file_path = config['cross_validation_file_path']
+        pipe_file_path = config['pipeline_file_path']
+        model_path = config['model_path']
+
+        metric = self.get_evaluation(hash_id=hash_id)
+
+        df_data, df_target = self.get_data(hash_id)
+
+        selection = metric[subset].get_max_scores()[str(score)]
+
+        path, rel_filename = os.path.split(selection['model'])
+        filename, extension = os.path.splitext(rel_filename)
+
+        managers = {
+            'training': metrics.Manager(),
+            'validation': metrics.Manager(),
+            'test': metrics.Manager(),
+            'all': metrics.Manager()
+        }
+
+        params = selection['params']
+        n_folds = config['n_folds']*config['n_repeats']
+        for ifold in range(n_folds):
+
+            pipe_name = '%s_pipeline_fold_%i_of_%i.pkl'%(hash_id, ifold, n_folds)
+            with open(os.path.join(pipe_file_path, pipe_name),'rb') as file_handler:
+                pipe = joblib.load(file_handler)
+
+            trans_data = pipe.transform(df_data)
+            if isinstance(trans_data, pd.DataFrame):
+                trans_data = trans_data.values
+
+
+            cv_name = '%s_cross_validation_fold_%i_of_%i.pkl'%(hash_id, ifold, n_folds)
+
+            with open(os.path.join(cv_file_path, cv_name),'rb') as file_handler:
+                [trn_id, val_id, test_id] = pickle.load(file_handler)
+
+            model_name = '%s_model'%(hash_id)
+            for key, value in params.items():
+                model_name = model_name + '_' + key + '_' + str(value)
+            model_name = model_name + '_fold_%i_of_%i.pkl'%(ifold, n_folds)
+
+            model_filename = os.path.join(model_path, model_name)
+            model = ml.Base.load(model_filename)
+
+            trn_predictions = model.predict(trans_data[trn_id, :], output_as_classifier=False)
+            val_predictions = model.predict(trans_data[val_id, :], output_as_classifier=False)
+            test_predictions = model.predict(trans_data[test_id, :], output_as_classifier=False)
+            all_predictions = model.predict(trans_data, output_as_classifier=False)
+
+            trn_target = df_target.values[trn_id]
+            val_target = df_target.values[val_id]
+            test_target = df_target.values[test_id]
+            all_target = df_target.values
+
+            trn_predictions = (trn_predictions > 0.5 + offset).astype(int)
+            val_predictions = (val_predictions > 0.5 + offset).astype(int)
+            test_predictions = (test_predictions > 0.5 + offset).astype(int)
+            all_predictions = (all_predictions > 0.5 + offset).astype(int)
+
+            trn_scores = metrics.get_scores(trn_target, trn_predictions)
+            val_scores = metrics.get_scores(val_target, val_predictions)
+            test_scores = metrics.get_scores(test_target, test_predictions)
+            all_scores = metrics.get_scores(all_target, all_predictions)
+
+            managers['training'].add_score(params.copy(), trn_scores.copy(), model_filename)
+            managers['validation'].add_score(params.copy(), val_scores.copy(), model_filename)
+            managers['test'].add_score(params.copy(), test_scores.copy(), model_filename)
+            managers['all'].add_score(params.copy(), all_scores.copy(), model_filename)
+
+        return managers

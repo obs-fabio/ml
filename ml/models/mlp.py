@@ -79,7 +79,7 @@ class MLP(ml.Base):
         if self.model == None:
             raise UnboundLocalError("it is not possible to predict the data without training")
 
-        predictions = self.model.predict(X)
+        predictions = self.model.predict(X,verbose=0)
         if output_as_classifier:
             predictions = (predictions > 0.5).astype(int)
         return predictions
