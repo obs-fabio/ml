@@ -333,6 +333,22 @@ class Grid_compiler():
         self.n_samples = Grid_compiler.default_n_samples if n_samples is None else n_samples
         self.pt_br = Grid_compiler.default_pt_br if pt_br is None else pt_br
 
+    def add_fold(self, params, cv):
+        if not isinstance(params, dict):
+            params = {'': params}
+
+        params_hash = hash(tuple(params.items()))
+        self.params = params.keys()
+
+        if not params_hash in self.cv_dict:
+            self.cv_dict[params_hash]  = {
+                'params': params,
+                'fold': cv,
+            }
+            self.param_dict[params_hash] = params
+        else:
+            self.cv_dict[params_hash]['fold'] = cv
+
     def add(self, params, metrics, model_path, id):
         params_hash = hash(tuple(params.items()))
         self.params = params.keys()
@@ -548,7 +564,7 @@ if __name__ == "__main__":
                     id= ifold)
             
     print(grid.as_str())
-    grid.save_tex("a.tex")
+    # grid.save_tex("a.tex")
     print("best param F1: ", grid.get_best_param(Metric.F1))
     print("best fold F1: ", grid.get_best_fold(Metric.F1))
 
@@ -557,6 +573,17 @@ if __name__ == "__main__":
         'drop out': ["0.2","0.4"],
         'regularização': [0.2,0.1],
     }
-    grid.save_tex("b.tex",params)
+    # grid.save_tex("b.tex",params)
+    print(grid.as_str(params))
+
+    print("--- subgrid ---")
+    grid2 = Grid_compiler()
+    metrics = [Metric.F1, Metric.LOG_LOSS, Metric.AUC]
+    for metric in metrics:
+        grid2.add_fold(str(metric),
+                grid.get_best_fold(metric))
+    
+    print(grid2.as_str(metrics=metrics))
+
 
 
