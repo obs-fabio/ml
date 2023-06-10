@@ -6,6 +6,9 @@ import itertools
 import json
 from tabulate import tabulate
 import sklearn.metrics as skmetrics
+import matplotlib.pyplot as plt
+import tikzplotlib as tikz
+import seaborn as sea
 
 from ml.models.base import Base
 
@@ -202,6 +205,9 @@ class Cross_validation_compiler():
     def eval(self, y_target, y_predict, model_path, id, decision_threshold=0.5):
         self.add(Metric.eval_scores(y_target, y_predict, decision_threshold), model_path, id)
 
+    def get_scores(self, metric):
+        return self._score_dict[str(metric)]
+    
     def get_mean(self, metric):
         return np.mean(self._score_dict[str(metric)])
 
@@ -320,11 +326,11 @@ class Cross_validation_compiler():
     def __str__(self):
         return json.dumps(self._score_dict, indent=4)
 
-
 class Grid_compiler():
     default_metrics = [Metric.F1, Metric.FALSE_ALARM, Metric.PRECISION, Metric.AUC]
     default_n_samples = 60
     default_pt_br = True
+    default_fig_size = (10, 7)
 
     def __init__(self, n_samples = None, pt_br = None):
         self.cv_dict = {}
@@ -380,6 +386,18 @@ class Grid_compiler():
             param_hash = hash(tuple(parameter_dict.items()))
             valid_hash_ids.append(param_hash)
         return valid_hash_ids
+
+    @staticmethod
+    def param_to_string(params):
+        if len(params.keys()) == 1:
+            for key, value in params.items():
+                return str(value)
+        id = ""
+        for key, value in params.items():
+            if id != "":
+                id = id + "_"
+            id = id + key + "[" + str(value) + "]"
+        return id
 
     def get_bests(self, param_pack=None):
         valid_hash_ids = Grid_compiler.pack_to_hashs(param_pack)
@@ -498,6 +516,56 @@ class Grid_compiler():
             filename
         )
 
+    def get_scores(self, metric, param_pack=None):
+        data = []
+        names = []
+        valid_hash_ids = Grid_compiler.pack_to_hashs(param_pack)
+        for hash_id, cv_dict in self.cv_dict.items():
+            if param_pack is not None and hash_id not in valid_hash_ids:
+                continue
+
+            data.append(cv_dict['fold'].get_scores(metric))
+            names.append(Grid_compiler.param_to_string(cv_dict['params']))
+        return data, names
+
+    def boxplot(self, metric, filepath=None, param_pack=None):
+        data, names = self.get_scores(metric, param_pack)
+
+        fig, ax = plt.subplots(figsize = Grid_compiler.default_fig_size)
+        ax = fig.add_axes([0, 0, 1, 1])
+        bp = ax.boxplot(data, vert=False)
+        plt.yticks(ticks=range(1, len(names) + 1), labels=names)
+
+        if filepath is not None:
+            filename, extension = os.path.splitext(filepath)
+            print(extension)
+            if extension == ".tex":
+                tikz.save(filepath)
+            else:
+                plt.savefig(filepath)
+        else:
+            plt.show()
+        plt.close()
+
+    def violinplot(self, metric, filepath=None, param_pack=None):
+        data, names = self.get_scores(metric, param_pack)
+
+        sea.set(style="white")
+        fig, ax = plt.subplots(figsize = Grid_compiler.default_fig_size)
+        sea.violinplot(data=data, orient='h', ax=ax, color='skyblue')
+        ax.set_yticks(range(len(names)))
+        ax.set_yticklabels(names)
+
+        if filepath is not None:
+            filename, extension = os.path.splitext(filepath)
+            print(extension)
+            if extension == ".tex":
+                tikz.save(filepath)
+            else:
+                plt.savefig(filepath)
+        else:
+            plt.show()
+        plt.close()
 
 if __name__ == "__main__":
 
@@ -584,6 +652,12 @@ if __name__ == "__main__":
                 grid.get_best_fold(metric))
     
     print(grid2.as_str(metrics=metrics))
+
+    print("\n--- boxplot ---")
+    grid2.boxplot(Metric.AUC, "boxplot.png")
+    grid2.boxplot(Metric.AUC, "boxplot.tex")
+    grid2.violinplot(Metric.AUC, "violinplot.png")
+    grid2.violinplot(Metric.AUC, "violinplot.tex")
 
 
 
