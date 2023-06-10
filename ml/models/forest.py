@@ -24,11 +24,7 @@ class RandomForest(ml.Base):
         )
         self.model.fit(X, Y)
 
-    def predict(self, X, output_as_classifier=True, **kwargs):
+    def predict(self, X, **kwargs):
         if self.model is None:
             raise UnboundLocalError("It is not possible to predict the data without training")
-        
-        predictions = self.model.predict(X)
-        if output_as_classifier:
-            predictions = predictions.astype(int)
-        return predictions
+        return self.model.predict(X)

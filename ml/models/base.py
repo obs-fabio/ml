@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
 import pickle
+import os
 import numpy as np
 import matplotlib.pyplot as plt
+import tikzplotlib as tikz
+
 from sklearn.utils.class_weight import compute_class_weight
 
 class Base(ABC):
@@ -17,7 +20,7 @@ class Base(ABC):
         pass
 
     @abstractmethod
-    def predict(self, X, output_as_classifier=True, **kwargs):
+    def predict(self, X, **kwargs):
         pass
 
     def save(self, file_path):
@@ -34,42 +37,30 @@ class Base(ABC):
         class_weight = {0: weights[0], 1: weights[1]}
         return class_weight
 
-    def plot_predict_hist(self, X, Y, save_file=None, **kwargs):
+    def plot_predict_hist(self, X, Y, filepath=None, **kwargs):
 
         Y = Y.values
-        predictions = self.predict(X, output_as_classifier=False)
+        predictions = self.predict(X)
 
         errors = np.abs(np.squeeze(predictions) - Y)
 
         positive_errors = errors[Y == 1]
         negative_errors = errors[Y == 0]
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(errors)
-        plt.plot(positive_errors)
-        plt.plot(negative_errors)
-        plt.show()
-
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(10, 7))
         plt.hist(positive_errors, bins=30, alpha=0.5, color='b', label='Positive Class')
-        # plt.hist(negative_errors, bins=30, alpha=0.5, color='r', label='Negative Class')
-        plt.xlabel('Error')
-        plt.ylabel('Frequency')
-        plt.title('Prediction Error Histogram')
-        plt.legend()
-        if save_file is None:
-            plt.show()
-        else:
-            plt.savefig(save_file)
-
-        plt.figure(figsize=(10, 6))
-        # plt.hist(positive_errors, bins=30, alpha=0.5, color='b', label='Positive Class')
         plt.hist(negative_errors, bins=30, alpha=0.5, color='r', label='Negative Class')
         plt.xlabel('Error')
         plt.ylabel('Frequency')
-        plt.title('Prediction Error Histogram')
         plt.legend()
-        if save_file is None:
-            plt.show()
+
+        if filepath is not None:
+            filename, extension = os.path.splitext(filepath)
+            print(extension)
+            if extension == ".tex":
+                tikz.save(filepath)
+            else:
+                plt.savefig(filepath)
         else:
-            plt.savefig(save_file)
+            plt.title('Prediction Error Histogram')
+            plt.show()
