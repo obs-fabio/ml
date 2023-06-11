@@ -53,6 +53,7 @@ class Experiment():
         self.split_subsets_done = False
         self.pipeline_fit_done = False
         self.models_fit_done = False
+        self.models_predict_done = False
 
     def get_dir(self, subdir=None):
         base = os.path.join(self.output_path,self.id)
@@ -71,6 +72,33 @@ class Experiment():
             if raise_error:
                 raise UnboundLocalError(error_str)
             print(error_str)
+
+    def backup_content(self):
+        basepath = self.get_dir()
+        if not os.path.exists(basepath):
+            return
+
+        path_content = os.listdir(basepath)
+        if not path_content:
+            return
+
+        now = datetime.datetime.now()
+        stardate = now.strftime("%Y%m%d%H%M%S")
+
+        new_folder_path = os.path.join(basepath, stardate)
+        os.makedirs(new_folder_path)
+
+        for item in path_content:
+            item_path = os.path.join(basepath, item)
+            new_item_path = os.path.join(new_folder_path, item)
+            try:
+                datetime.datetime.strptime(item, "%Y%m%d%H%M%S")
+            except ValueError:
+                shutil.move(item_path, new_item_path)
+
+    def clear_content(self):
+        for dir in Subdirs:
+            shutil.rmtree(self.get_dir(dir))
 
     def update(self, config):
         self.hash_id = Trainer.hash(config['id'])
@@ -91,6 +119,12 @@ class Experiment():
 
     def to_dict(self):
         return self.__dict__
+
+    def reset_flags(self):
+        self.split_subsets_done = False
+        self.pipeline_fit_done = False
+        self.models_fit_done = False
+        self.models_predict_done = False
 
     @staticmethod
     def from_dict(dados):
@@ -114,7 +148,6 @@ class Experiment():
             pack = dict(zip(self.constructor_params.keys(), combination))
             pack_list.append(pack)
         return pack_list
-
 
     #Cross Validation
 
@@ -174,7 +207,7 @@ class Experiment():
     #Pipeline
 
     def get_pipeline_filename(self, ifold):
-        name ='fold_{:d}_of_{:d}.pkl'.format(
+        name ='fold_{:d}_of_{:d}.joblib'.format(
                                         ifold,
                                         self.get_n_folds())
         return os.path.join(self.get_dir(Subdirs.PIPELINE), name)
@@ -209,7 +242,7 @@ class Experiment():
 
         self.split_subsets_done = True
 
-    def fit_pipelines(self, force=False):
+    def fit_pipelines(self, force=False, only_first_fold=False):
         self.check_dirs()
 
         if self.pipeline_fit_done and not force:
@@ -217,6 +250,9 @@ class Experiment():
 
         for ifold in range(self.get_n_folds()):
             self.fit_pipeline(ifold)
+            
+            if only_first_fold:
+                return
 
     def get_pipeline(self, ifold):
         filename = self.get_pipeline_filename(ifold)
@@ -259,6 +295,9 @@ class Experiment():
                     val_X = trans_data.iloc[val_id],
                     val_Y = df_target.iloc[val_id])
 
+        predictions = model.predict(trans_data)
+        print(predictions.T)
+
         model.save(filename)
 
     def fit_models(self, only_first_fold=False, force=False):
@@ -284,32 +323,69 @@ class Experiment():
 
         return ml.Base.load(filename)
 
-    def backup_content(self):
-        basepath = self.get_dir()
-        if not os.path.exists(basepath):
+    #Predict model
+
+    def get_predict_filename(self, ifold, param_pack):
+        name ='fold_{:d}_of_{:d}'.format(
+                                        ifold,
+                                        self.get_n_folds())
+        for key, value in param_pack.items():
+            name = name + '_' + key + '(' + str(value) + ")"
+
+        return os.path.join(self.get_dir(Subdirs.PREDICTION), name + ".csv")
+
+    def predict_model(self, ifold, param_pack):
+        filename = self.get_predict_filename(ifold, param_pack)
+        print(filename)
+
+        if os.path.exists(filename):
             return
 
-        path_content = os.listdir(basepath)
-        if not path_content:
+        df_data, df_target = self.get_data()
+        pipe = self.get_pipeline(ifold)
+        model = self.get_model(ifold, param_pack)
+
+        trans_data = pd.DataFrame(pipe.transform(df_data), columns = df_data.columns, index = np.array(df_data.index))
+
+        predictions = model.predict(trans_data)
+        if predictions.ndim > 1 and predictions.shape[1] == 1:
+            predictions = predictions.flatten()
+
+        df_predictions = pd.DataFrame({
+            'predictions': predictions,
+            'target': df_target
+        })
+        df_predictions.to_csv(filename, index=False)
+
+    def predict_models(self, only_first_fold=False):
+        self.check_dirs()
+        print("predict_models")
+
+        if self.models_predict_done:
             return
 
-        now = datetime.datetime.now()
-        stardate = now.strftime("%Y%m%d%H%M%S")
+        print("self.get_n_folds() " ,self.get_n_folds())
+        for ifold in range(self.get_n_folds()):
+            for param_pack in self.get_param_pack_list():
+                print("predict_model")
+                self.predict_model(ifold, param_pack)
+            
+            if only_first_fold:
+                return
 
-        new_folder_path = os.path.join(basepath, stardate)
-        os.makedirs(new_folder_path)
+        self.models_predict_done = True
 
-        for item in path_content:
-            item_path = os.path.join(basepath, item)
-            new_item_path = os.path.join(new_folder_path, item)
-            try:
-                datetime.datetime.strptime(item, "%Y%m%d%H%M%S")
-            except ValueError:
-                shutil.move(item_path, new_item_path)
+    def get_prediction(self, ifold, param_pack):
+        filename = self.get_predict_filename(ifold, param_pack)
 
-    def clear_content(self):
-        for dir in Subdirs:
-            shutil.rmtree(self.get_dir(dir))
+        if not os.path.exists(filename):
+            self.predict_model(ifold, param_pack)
+
+        df = pd.read_csv(filename, sep=',')
+        predictions = df[self.predictions]
+        target = df[self.target]
+        return target, predictions
+
 
 class Trainer():
     def __init__(self, control_file):
@@ -360,7 +436,11 @@ class Trainer():
                 else:
                     self.experiments[id].clear_content()
 
+            if reset_experiments:
+                self.experiments[id].reset_flags()
+
             self.experiments[id].fit_models(only_first_fold)
+            self.experiments[id].predict_models(only_first_fold)
 
         except:
             self._save()
@@ -373,7 +453,7 @@ class Trainer():
 if __name__ == "__main__":
     config_file = "config.json"
     config = {
-            "id": "ab",
+            "id": "mlp",
             "data_file": "./results/inputs/training.csv",
             "input_column": [
                 "Hora",
@@ -384,7 +464,7 @@ if __name__ == "__main__":
             "output_column": "Visivel",
             "test_subset": 0.1,
             "n_folds": 3,
-            "n_repeats": 2,
+            "n_repeats": 1,
             "pipeline": "StandardScaler",
             "constructor": "SVM(kernel=\"linear\", {:s})",
             "constructor_params": {
@@ -394,12 +474,18 @@ if __name__ == "__main__":
                     "nu=0.7"
                 ]
             },
+            # "constructor": "MLP(n_hidden=16,batch_size=1/6,learning_rate={:.2f})",
+            # "constructor_params": {
+            #     "learning_rates": [
+            #         0.01
+            #     ]
+            # },
             "output_path": "./results",
         }
 
     trainer = Trainer(config_file)
     trainer.config_experiment(config)
 
-    trainer.all(config['id'])
+    trainer.all(config['id'], reset_experiments=True, backup_old=False, only_first_fold=True)
     # experiment = trainer.get_experiment(config['id'])
     # print(experiment.get_subset_ids(4))

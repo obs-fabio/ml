@@ -74,8 +74,7 @@ class MLP(ml.Base):
                                 verbose=0,
                                 validation_data=(val_X,val_Y))
 
-
-    def predict(self, X, output_as_classifier=True, **kwargs):
+    def predict(self, X, **kwargs):
         if self.model == None:
             raise UnboundLocalError("it is not possible to predict the data without training")
 

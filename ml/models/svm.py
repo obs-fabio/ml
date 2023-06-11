@@ -41,14 +41,11 @@ class SVM(ml.Base):
                     verbose=self.verbose)
         self.model.fit(X,Y)
 
-    def predict(self, X, output_as_classifier=True, **kwargs):
+    def predict(self, X, **kwargs):
         if self.model is None:
             raise UnboundLocalError("it is not possible to predict the data without training")
 
-        predictions = self.model.predict(X)
-        if output_as_classifier:
-            predictions = (predictions > 0.5).astype(int)
-        return predictions
+        return self.model.predict(X)
 
 class KC(ml.Base):
     def __init__(self, **kwargs):
