@@ -326,6 +326,7 @@ class Cross_validation_compiler():
     def __str__(self):
         return json.dumps(self._score_dict, indent=4)
 
+
 class Grid_compiler():
     default_metrics = [Metric.F1, Metric.FALSE_ALARM, Metric.PRECISION, Metric.AUC]
     default_n_samples = 60
@@ -566,6 +567,9 @@ class Grid_compiler():
         else:
             plt.show()
         plt.close()
+
+    def __str__ (self):
+        return self.as_str()
 
 if __name__ == "__main__":
 
