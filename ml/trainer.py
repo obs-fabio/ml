@@ -74,6 +74,12 @@ class Experiment():
         self.pipeline_fitting_done = False
         self.models_fitting_done = False
         self.models_prediction_done = False
+        self.df_data = None
+        self.df_target = None
+
+    def check_data(self):
+        if self.df_data is None:
+            self.df_data, self.df_target = self.get_data()
 
     def get_dir(self, subdir=None):
         base = os.path.join(self.base_output_path,self.id)
@@ -136,7 +142,10 @@ class Experiment():
         self.check_dirs(False)
 
     def to_dict(self):
-        return self.__dict__
+        ret = self.__dict__.copy()
+        ret['df_data'] = None
+        ret['df_target'] = None
+        return ret
 
     def reset_flags(self):
         self.split_subsets_done = False
@@ -181,16 +190,22 @@ class Experiment():
         if self.split_subsets_done and not force:
             return
 
-        df_data, df_target = self.get_data()
+        # df_data, df_target = self.get_data()
+        self.check_data()
 
-        indexes = np.array(range(df_data.shape[0]))
+        indexes = np.array(range(self.df_data.shape[0]))
 
-        x_subset, x_test, y_subset, _ = sklmodel.train_test_split(indexes,
-                                                       df_target,
-                                                       test_size=self.test_subset,
-                                                       shuffle=shuffle,
-                                                       stratify=df_target,
-                                                       random_state=random_state)
+        if self.test_subset != 0:
+            x_subset, x_test, y_subset, _ = sklmodel.train_test_split(indexes,
+                                                        self.df_target,
+                                                        test_size=self.test_subset,
+                                                        shuffle=shuffle,
+                                                        stratify=self.df_target,
+                                                        random_state=random_state)
+        else:
+            x_subset = indexes
+            x_test = None
+            y_subset = self.df_target
 
         if self.n_repeats == 1:
             cv = sklmodel.StratifiedKFold(n_splits=self.n_folds,
@@ -201,7 +216,7 @@ class Experiment():
                                      n_repeats=self.n_repeats,
                                      random_state=random_state)
 
-        for ifold, (trn_id, val_id) in enumerate(cv.split(df_data.loc[x_subset,:], y_subset)):
+        for ifold, (trn_id, val_id) in enumerate(cv.split(self.df_data.loc[x_subset,:], y_subset)):
 
             filename = self.get_cv_filename(ifold)
             if os.path.exists(filename):
@@ -236,22 +251,23 @@ class Experiment():
         if os.path.exists(filename):
             return
 
-        df_data, df_target = self.get_data()
+        # df_data, df_target = self.get_data()
+        self.check_data()
 
         trn_id, val_id, test_id = self.get_subset_ids(ifold)
 
         if self.pipeline == 'StandardScaler':
             pipe = Pipeline(steps=[("scaler", StandardScaler())])
-            pipe.fit(df_data.iloc[trn_id,:])
+            pipe.fit(self.df_data.iloc[trn_id,:])
         elif self.pipeline == 'MinMaxScaler':
             pipe = Pipeline(steps=[("scaler", MinMaxScaler())])
-            pipe.fit(df_data.iloc[trn_id, :])
+            pipe.fit(self.df_data.iloc[trn_id, :])
         elif self.pipeline == 'BoxCox':
             pipe = Pipeline(steps=[
                 ("preprocess", FunctionTransformer(_maximum)),
                 ("scaler", PowerTransformer(method='box-cox'))
             ])
-            pipe.fit(df_data.iloc[trn_id, :])
+            pipe.fit(self.df_data.iloc[trn_id, :])
         else:
             raise NotImplementedError("pipeline " + self.pipeline) 
 
@@ -299,19 +315,20 @@ class Experiment():
         if os.path.exists(filename):
             return
 
-        df_data, df_target = self.get_data()
+        # df_data, df_target = self.get_data()
+        self.check_data()
 
         trn_id, val_id, test_id = self.get_subset_ids(ifold)
         pipe = self.get_pipeline(ifold)
 
-        trans_data = pd.DataFrame(pipe.transform(df_data), columns = df_data.columns, index = np.array(df_data.index))
+        trans_data = pd.DataFrame(pipe.transform(self.df_data), columns = self.df_data.columns, index = np.array(self.df_data.index))
 
         model = eval(self.model_constructor.format(*param_pack.values()))
 
         model.fit(trans_data.iloc[trn_id],
-                    df_target.iloc[trn_id],
+                    self.df_target.iloc[trn_id],
                     val_X = trans_data.iloc[val_id],
-                    val_Y = df_target.iloc[val_id])
+                    val_Y = self.df_target.iloc[val_id])
 
         predictions = model.predict(trans_data)
 
@@ -357,11 +374,12 @@ class Experiment():
         if os.path.exists(filename):
             return
 
-        df_data, df_target = self.get_data()
+        # df_data, df_target = self.get_data()
+        self.check_data()
         pipe = self.get_pipeline(ifold)
         model = self.get_model(ifold, param_pack)
 
-        trans_data = pd.DataFrame(pipe.transform(df_data), columns = df_data.columns, index = np.array(df_data.index))
+        trans_data = pd.DataFrame(pipe.transform(self.df_data), columns = self.df_data.columns, index = np.array(self.df_data.index))
 
         predictions = model.predict(trans_data)
         if predictions.ndim > 1 and predictions.shape[1] == 1:
@@ -369,7 +387,7 @@ class Experiment():
 
         df_predictions = pd.DataFrame({
             'predictions': predictions,
-            'targets': df_target
+            'targets': self.df_target
         })
         df_predictions.to_csv(filename, index=False)
 
@@ -425,14 +443,16 @@ class Experiment():
 
                 trn_result.eval(target.iloc[trn_id], predict[trn_id], param_pack, self.get_model_filename(ifold, param_pack), cont, decision_threshold)
                 val_result.eval(target.iloc[val_id], predict[val_id], param_pack, self.get_model_filename(ifold, param_pack), cont, decision_threshold)
-                test_result.eval(target.iloc[test_id], predict[test_id], param_pack, self.get_model_filename(ifold, param_pack), cont, decision_threshold)
+                if test_id is not None:
+                    test_result.eval(target.iloc[test_id], predict[test_id], param_pack, self.get_model_filename(ifold, param_pack), cont, decision_threshold)
 
             cont = cont + 1
 
         if export_results:
             trn_result.save_tex(self.get_evaluation_filename('trn'))
             val_result.save_tex(self.get_evaluation_filename('val'))
-            test_result.save_tex(self.get_evaluation_filename('test'))
+            if test_id is not None:
+                test_result.save_tex(self.get_evaluation_filename('test'))
 
         return Experiment_results(trn_result, val_result, test_result)
 
@@ -531,7 +551,7 @@ if __name__ == "__main__":
                 "Tempo sozinho"
             ],
             "output_column": "Visivel",
-            "test_subset": 0.1,
+            "test_subset": 0,
             "n_folds": 3,
             "n_repeats": 1,
             "pipeline": "StandardScaler",
@@ -549,12 +569,12 @@ if __name__ == "__main__":
     trainer = Trainer(config_file)
     trainer.config_experiment(config)
 
-    trainer.run(config['id'], reset_experiments=True, backup_old=False, only_first_fold=True)
-    print('--- Result for 1 fold ---')
-    result = trainer.get_experiment_partial_result(config['id'])
-    for subset in Subsets:
-        print(result[subset])
-    print('--- Result for all folds ---')
-    result = trainer.get_experiment_result(config['id'])
-    for subset in Subsets:
-        print(result[subset])
+    trainer.run(config['id'], reset_experiments=True, backup_old=False)
+    # print('--- Result for 1 fold ---')
+    # result = trainer.get_experiment_partial_result(config['id'])
+    # for subset in Subsets:
+    #     print(result[subset])
+    # print('--- Result for all folds ---')
+    # result = trainer.get_experiment_result(config['id'])
+    # for subset in Subsets:
+    #     print(result[subset])
