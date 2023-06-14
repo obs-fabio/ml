@@ -160,7 +160,7 @@ class Experiment():
         return instancia
 
     def get_data(self):
-        df = pd.read_csv(self.input_file, sep=',')
+        df = pd.read_csv(self.input_file, sep=',', usecols=self.input_columns.extend(self.output_column))
         df_data = df[self.input_columns]
         df_target = df[self.output_column]
         return df_data, df_target
@@ -387,7 +387,7 @@ class Experiment():
 
         df_predictions = pd.DataFrame({
             'predictions': predictions,
-            'targets': self.df_target
+            'targets': self.df_target[self.df_target.columns[0]]
         })
         df_predictions.to_csv(filename, index=False)
 

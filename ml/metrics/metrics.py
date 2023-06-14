@@ -284,7 +284,7 @@ class Cross_validation_compiler():
     def as_str(self, metrics, n_samples=None, tex_format=False):
         ret = ['' for _ in metrics]
         for i, metric in enumerate(metrics):            
-            decimal_places = int(math.log10(math.sqrt(n_samples))+1)
+            decimal_places = 3 #int(math.log10(math.sqrt(n_samples))+1)
             ret[i] = self.metric_as_str(metric, n_samples, tex_format)
         return ret
 

@@ -27,7 +27,7 @@ class SVM(ml.Base):
                     tol=self.tol,
                     coef0=self.coef0,
                     random_state=42,
-                    class_weight=self.get_class_weight(Y),
+                    # class_weight=self.get_class_weight(Y),
                     verbose=self.verbose)
         else:
             self.model = NuSVC(nu=self.nu,
@@ -37,7 +37,7 @@ class SVM(ml.Base):
                     tol=self.tol,
                     coef0=self.coef0,
                     random_state=42,
-                    class_weight=self.get_class_weight(Y),
+                    # class_weight=self.get_class_weight(Y),
                     verbose=self.verbose)
         self.model.fit(X,Y)
 
