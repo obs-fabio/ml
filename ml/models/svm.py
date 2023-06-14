@@ -3,7 +3,8 @@ import numpy as np
 import cvxpy as cvx
 
 from tensorflow import keras
-from sklearn.svm import SVC, NuSVC
+# from sklearn.svm import SVC, NuSVC
+from thundersvm import *
 
 class SVM(ml.Base):
     def __init__(self, **kwargs):
