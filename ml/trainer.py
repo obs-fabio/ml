@@ -12,6 +12,7 @@ import shutil
 import datetime
 from abc import ABC, abstractmethod
 
+from tqdm import tqdm
 import sklearn.model_selection as sklmodel
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, FunctionTransformer, PowerTransformer
@@ -268,6 +269,8 @@ class Experiment():
                 ("scaler", PowerTransformer(method='box-cox'))
             ])
             pipe.fit(self.df_data.iloc[trn_id, :])
+        elif self.pipeline is None:
+            pipe = Pipeline(steps=[('passthrough', 'passthrough')])
         else:
             raise NotImplementedError("pipeline " + self.pipeline) 
 
@@ -340,7 +343,7 @@ class Experiment():
         if self.models_fitting_done and not force:
             return
 
-        for ifold in range(self.get_n_folds()):
+        for ifold in tqdm(range(self.get_n_folds())):
             for param_pack in self.get_param_pack_list():
                 self.fit_model(ifold, param_pack)
 

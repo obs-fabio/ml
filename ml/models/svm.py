@@ -13,7 +13,7 @@ class SVM(ml.Base):
         self.C = kwargs.get('C', 0.5)
         self.nu = kwargs.get('nu', None)
         self.degree = kwargs.get('degree', 3)
-        self.gamma = kwargs.get('gamma', 'scale')
+        self.gamma = kwargs.get('gamma', 'auto')
         self.tol = kwargs.get('tol', 1e-3)
         self.coef0 = kwargs.get('coef0', 0)
         self.model = None
@@ -40,6 +40,7 @@ class SVM(ml.Base):
                     random_state=42,
                     # class_weight=self.get_class_weight(Y),
                     verbose=self.verbose)
+        print(Y)
         self.model.fit(X,Y)
 
     def predict(self, X, **kwargs):
