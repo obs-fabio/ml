@@ -20,7 +20,7 @@ class RandomForest(ml.Base):
             max_depth=self.max_depth,
             criterion=self.criterion,
             max_features=self.max_features,
-            class_weight=self.get_class_weight(Y)
+            # class_weight=self.get_class_weight(Y)
         )
         self.model.fit(X, Y)
 

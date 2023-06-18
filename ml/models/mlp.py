@@ -9,7 +9,7 @@ class MLP(ml.Base):
         super().__init__()
         self.n_hidden = kwargs.get('n_hidden', 10)
         self.learning_rate = kwargs.get('learning_rate', 0.01)
-        self.epochs = kwargs.get('epochs', 64)
+        self.epochs = kwargs.get('epochs', 512)
         self.random_state = kwargs.get('random_state', None)
         self.hidden_function = kwargs.get('hidden_function', 'tanh')
         self.output_function = kwargs.get('output_function', 'sigmoid')

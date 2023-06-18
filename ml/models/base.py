@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import pickle
 import os
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import tikzplotlib as tikz
@@ -33,8 +34,11 @@ class Base(ABC):
             return pickle.load(f)
 
     def get_class_weight(self,Y):
+        if isinstance(Y, pd.core.frame.DataFrame):
+            Y = Y.squeeze()
         weights = compute_class_weight('balanced', classes = np.unique(Y), y = list(Y))
         class_weight = {0: weights[0], 1: weights[1]}
+        # class_weight = {0: 1.2, 1: 0.8}
         return class_weight
 
     def plot_predict_hist(self, X, Y, filepath=None, **kwargs):
@@ -64,3 +68,18 @@ class Base(ABC):
         else:
             plt.title('Prediction Error Histogram')
             plt.show()
+
+    def eval_robustness(self, X, Y, eval_id, metric, decision_threshold=0.5):
+
+        relevance = np.zeros(X.shape[1],)
+
+        base_score = metric.eval(X.iloc[eval_id], Y[eval_id], decision_threshold)
+        for iinput in range(X.shape[1]):
+
+            buffer_data = np.copy(X)
+            buffer_data[:,iinput] = np.mean(buffer_data[:,iinput])
+            predictions = self.predict(buffer_data[eval_id])
+
+            score = metric.Metric.eval_scores(predictions,Y[eval_id], decision_threshold)[str(metric)]
+
+            relevance[iinput] = (score-base_score)/base_score

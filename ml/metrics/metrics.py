@@ -55,7 +55,7 @@ class Metric(Enum):
             __class__.AUC: "AUC",
             __class__.F1: "F1 score",
             __class__.RECALL: "Recall",
-            __class__.SENSITIVITY: "Sensitividade",
+            __class__.SENSITIVITY: "Sensibilidade",
             __class__.PRECISION: "Precisão",
             __class__.ACCURACY: "Acurária",
             __class__.SPECIFICITY: "Especificidade",
@@ -245,8 +245,8 @@ class Cross_validation_compiler():
         return (tns, fps, fns, tps)
 
     @staticmethod
-    def str_format(values, n_samples=None, tex_format=False):
-        decimal_places = int(math.log10(math.sqrt(n_samples))+1)
+    def str_format(values, n_samples=60, tex_format=False):
+        decimal_places = 2#int(math.log10(math.sqrt(n_samples))+1)
         if tex_format:
             return '${:.{}f} \\pm {:.{}f}$'.format(
                 np.mean(values),
@@ -305,10 +305,10 @@ class Cross_validation_compiler():
         table[3][3] = __class__.str_format(tps, n_samples, tex_format)
 
         if pt_br:
-            table[2][2] = table[2][2].replace(".",",")
-            table[2][3] = table[2][3].replace(".",",")
-            table[3][2] = table[3][2].replace(".",",")
-            table[3][3] = table[3][3].replace(".",",")
+            table[2][2] = table[2][2].replace(".",",\!" if tex_format else ",")
+            table[2][3] = table[2][3].replace(".",",\!" if tex_format else ",")
+            table[3][2] = table[3][2].replace(".",",\!" if tex_format else ",")
+            table[3][3] = table[3][3].replace(".",",\!" if tex_format else ",")
 
         return table
 
@@ -328,7 +328,7 @@ class Cross_validation_compiler():
 
 
 class Grid_compiler():
-    default_metrics = [Metric.F1, Metric.FALSE_ALARM, Metric.PRECISION, Metric.AUC]
+    default_metrics = [Metric.FALSE_ALARM, Metric.RECALL, Metric.F1, Metric.AUC]
     default_n_samples = 60
     default_pt_br = True
     default_fig_size = (10, 7)
@@ -373,6 +373,8 @@ class Grid_compiler():
         self.add(params, Metric.eval_scores(y_target, y_predict, decision_threshold), model_path, id)
 
     def get_fold(self, params):
+        if not isinstance(params, dict):
+            params = {'': params}
         params_hash = hash(tuple(params.items()))
         return self.cv_dict[params_hash]['fold']
 
@@ -484,7 +486,9 @@ class Grid_compiler():
                 else:
                     value_str = cv_dict['fold'].metric_as_str(metric, self.n_samples, True)
 
-                    if i == bests[metric]['index']  + 1:
+                    mean = np.mean(cv_dict['fold'].get_scores(metric))
+
+                    if (i == bests[metric]['index']  + 1) or (bests[metric]["mean"] == mean):
                         table[i][j] = "$\\mathbf{" + value_str[1:-1] + "}$"
                     else:
                         eval_best = metric.get_best_eval()
@@ -503,7 +507,7 @@ class Grid_compiler():
         if self.pt_br:
             for row in table:
                 for i in range(len(row)):
-                    row[i] = row[i].replace(".", ",")
+                    row[i] = row[i].replace(".", ",\!" if tex_format else ",")
         return table
 
     def as_str(self, param_pack=None, metrics=None):
@@ -539,7 +543,6 @@ class Grid_compiler():
 
         if filepath is not None:
             filename, extension = os.path.splitext(filepath)
-            print(extension)
             if extension == ".tex":
                 tikz.save(filepath)
             else:
@@ -559,7 +562,6 @@ class Grid_compiler():
 
         if filepath is not None:
             filename, extension = os.path.splitext(filepath)
-            print(extension)
             if extension == ".tex":
                 tikz.save(filepath)
             else:
@@ -570,6 +572,7 @@ class Grid_compiler():
 
     def __str__ (self):
         return self.as_str()
+
 
 if __name__ == "__main__":
 

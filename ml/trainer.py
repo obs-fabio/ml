@@ -21,6 +21,7 @@ from sklearn.utils.class_weight import compute_class_weight
 import ml.models.base as ml
 from ml.models.mlp import MLP
 from ml.models.svm import SVM, KC
+from ml.models.ensemble import Voting_ensemble, MLP_ensemble
 from ml.models.forest import RandomForest
 import ml.metrics.metrics as metrics
 
@@ -69,13 +70,25 @@ class Experiment():
     default_random_state = 42
 
     def __init__(self, config):
-        self.update(config)
+        self.id = config['id']
+        self.input_file = config['input_file']
+        self.input_columns = config['input_columns']
+        self.output_column = config['output_column']
+        self.test_subset = config['test_subset']
+        self.n_folds = config['n_folds']
+        self.n_repeats = config['n_repeats']
+        self.pipeline = config['pipeline']
+        self.model_constructor = config['model_constructor']
+        self.model_grid = config['model_grid']
+        self.base_output_path = config['base_output_path']
         self.split_subsets_done = False
         self.pipeline_fitting_done = False
         self.models_fitting_done = False
         self.models_prediction_done = False
         self.df_data = None
         self.df_target = None
+
+        self.check_dirs(False)
 
     def check_data(self):
         if self.df_data is None:
@@ -85,6 +98,8 @@ class Experiment():
         base = os.path.join(self.base_output_path,self.id)
         if subdir is None:
             return base
+        if subdir is Subdirs.CV:
+            return os.path.join(self.base_output_path, subdir.value)
         return os.path.join(base, subdir.value)
 
     def check_dirs(self, raise_error=True):
@@ -125,21 +140,6 @@ class Experiment():
     def clear_content(self):
         for dir in Subdirs:
             shutil.rmtree(self.get_dir(dir))
-
-    def update(self, config):
-        self.id = config['id']
-        self.input_file = config['input_file']
-        self.input_columns = config['input_columns']
-        self.output_column = config['output_column']
-        self.test_subset = config['test_subset']
-        self.n_folds = config['n_folds']
-        self.n_repeats = config['n_repeats']
-        self.pipeline = config['pipeline']
-        self.model_constructor = config['model_constructor']
-        self.model_grid = config['model_grid']
-        self.base_output_path = config['base_output_path']
-
-        self.check_dirs(False)
 
     def to_dict(self):
         ret = self.__dict__.copy()
@@ -268,6 +268,8 @@ class Experiment():
                 ("scaler", PowerTransformer(method='box-cox'))
             ])
             pipe.fit(self.df_data.iloc[trn_id, :])
+        elif self.pipeline == None:
+            pipe = Pipeline(steps=[('passthrough', 'passthrough')])
         else:
             raise NotImplementedError("pipeline " + self.pipeline) 
 
@@ -323,7 +325,12 @@ class Experiment():
 
         trans_data = pd.DataFrame(pipe.transform(self.df_data), columns = self.df_data.columns, index = np.array(self.df_data.index))
 
-        model = eval(self.model_constructor.format(*param_pack.values()))
+        all_empty = all(value == '' for value in param_pack.values())
+        if all_empty:
+            constructor_str = self.model_constructor
+        else:
+            constructor_str = self.model_constructor.format(*param_pack.values())
+        model = eval(constructor_str)
 
         model.fit(trans_data.iloc[trn_id],
                     self.df_target.iloc[trn_id],
@@ -387,7 +394,7 @@ class Experiment():
 
         df_predictions = pd.DataFrame({
             'predictions': predictions,
-            'targets': self.df_target
+            'targets': self.df_target[self.df_target.columns[0]]
         })
         df_predictions.to_csv(filename, index=False)
 
@@ -475,8 +482,8 @@ class Trainer():
             with open(self.control_file, 'r') as f:
                 exps_dict = json.load(f)
             for exp in exps_dict['configs']:
-                 exp = Experiment.from_dict(exp)
-                 self.experiments[exp.id] = exp
+                 experiment = Experiment(exp)
+                 self.experiments[experiment.id] = experiment
 
     def _save(self):
         exps_dict = {'configs': []}
@@ -496,10 +503,7 @@ class Trainer():
 
     def config_experiment(self, config):
         id = config['id']
-        if id in self.experiments:
-             self.experiments[id].update(config)
-        else:
-            self.experiments[id] = Experiment(config)
+        self.experiments[id] = Experiment(config)
         self._save()
 
     def run(self, id = None, reset_experiments=False, backup_old=True, only_first_fold=False, metrics=None):
