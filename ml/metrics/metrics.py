@@ -486,7 +486,9 @@ class Grid_compiler():
                 else:
                     value_str = cv_dict['fold'].metric_as_str(metric, self.n_samples, True)
 
-                    mean = np.mean(cv_dict['fold'].get_scores(metric))
+                    score = cv_dict['fold'].get_scores(metric)
+                    mean = np.mean(score)
+                    std = np.std(score)
 
                     if (i == bests[metric]['index']  + 1) or (bests[metric]["mean"] == mean):
                         table[i][j] = "$\\mathbf{" + value_str[1:-1] + "}$"
@@ -494,9 +496,10 @@ class Grid_compiler():
                         eval_best = metric.get_best_eval()
                         eval_improve = metric.get_best_improve()
 
-                        test_score = cv_dict['fold'].get_by_id(cv_dict['fold'].get_best_id(metric))
-                        if eval_best(test_score[str(metric)],
-                                     eval_improve(bests[metric]["mean"], -bests[metric]["std"])):
+                        best = eval_improve(mean, std)
+                        ref = eval_improve(bests[metric]["mean"], -bests[metric]["std"])
+
+                        if eval_best(best, ref):
                             table[i][j] = value_str
                         else:
                             table[i][j] = "\\textcolor{red}{" + value_str + "}"
