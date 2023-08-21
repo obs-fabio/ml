@@ -1,4 +1,4 @@
-import ml.models.base as ml
+import labsonar_ml.models.base as ml
 import numpy as np
 import cvxpy as cvx
 

@@ -18,12 +18,8 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, FunctionTransfor
 
 from sklearn.utils.class_weight import compute_class_weight
 
-import ml.models.base as ml
-from ml.models.mlp import MLP
-from ml.models.svm import SVM, KC
-from ml.models.ensemble import Voting_ensemble, MLP_ensemble
-from ml.models.forest import RandomForest
-import ml.metrics.metrics as metrics
+import labsonar_ml.models.base as ml
+import labsonar_ml.metrics.metrics as metrics
 
 def get_files(directory, extension):
 	file_list = []
@@ -32,9 +28,6 @@ def get_files(directory, extension):
 			if file.endswith(extension):
 				file_list.append(os.path.join(root, file))
 	return file_list
-
-def _maximum(X):
-    return np.maximum(X, 1e-10)
 
 class Subdirs(Enum):
     CV = "cv"
@@ -574,6 +567,7 @@ if __name__ == "__main__":
     trainer.config_experiment(config)
 
     trainer.run(config['id'], reset_experiments=True, backup_old=False)
+
     # print('--- Result for 1 fold ---')
     # result = trainer.get_experiment_partial_result(config['id'])
     # for subset in Subsets:

@@ -1,5 +1,5 @@
-import ml.models.base as ml
-from ml.models.mlp import MLP
+import labsonar_ml.models.base as ml
+from labsonar_ml.models.mlp import MLP
 
 import numpy as np
 import pandas as pd

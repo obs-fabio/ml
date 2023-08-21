@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name='ml',
+    name='labsonar_ml',
     packages=find_packages(),
     version='0.1.0',
     description='Labsonar Machine Learning Library',

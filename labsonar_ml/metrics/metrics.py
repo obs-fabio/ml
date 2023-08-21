@@ -1,16 +1,17 @@
 from enum import Enum
-import numpy as np
 import os
 import math
 import itertools
 import json
+import numpy as np
+import pandas as pd
 from tabulate import tabulate
 import sklearn.metrics as skmetrics
 import matplotlib.pyplot as plt
 import tikzplotlib as tikz
 import seaborn as sea
 
-from ml.models.base import Base
+from labsonar_ml.models.base import Base
 
 
 class Confusion_matrix(Enum):
@@ -580,9 +581,10 @@ class Grid_compiler():
 if __name__ == "__main__":
 
     print("--- Test Metrics ---")
-    y_target = np.random.randint(2, size=100)
-    # y_predict = np.random.randint(2, size=100)
-    y_predict = np.random.rand(100)
+    # y_target = pd.Series(np.random.randint(0, 2, 100))
+    # y_predict = pd.Series(np.random.randint(0, 2, 100))
+    y_target = np.random.randint(0, 2, 100)
+    y_predict = np.random.randint(0, 2, 100)
 
     metric_dict = Metric.eval_scores(y_target, y_predict)
 
@@ -616,58 +618,58 @@ if __name__ == "__main__":
     # print("best scores: ", compiler.get_by_id(best_id))
     # # print()
 
-    print("\n--- Metrics_compiler ---")
+    # print("\n--- Metrics_compiler ---")
 
-    # Grid_compiler.default_n_samples=100
-    # Grid_compiler.default_pt_br=False
-    grid = Grid_compiler()
+    # # Grid_compiler.default_n_samples=100
+    # # Grid_compiler.default_pt_br=False
+    # grid = Grid_compiler()
 
-    params = {
-        'drop out': ["None","0.2","0.4"],
-        'regularização': [0.8,0.2,0.1],
-    }
-    combinations = list(itertools.product(*params.values()))
+    # params = {
+    #     'drop out': ["None","0.2","0.4"],
+    #     'regularização': [0.8,0.2,0.1],
+    # }
+    # combinations = list(itertools.product(*params.values()))
 
-    for combination in combinations:
-        parameter_dict = dict(zip(params.keys(), combination))
+    # for combination in combinations:
+    #     parameter_dict = dict(zip(params.keys(), combination))
 
-        for ifold in range(5):
-            y_target = np.random.randint(2, size=100)
-            y_predict = np.random.rand(100) + parameter_dict['regularização']
+    #     for ifold in range(5):
+    #         y_target = np.random.randint(2, size=100)
+    #         y_predict = np.random.rand(100) + parameter_dict['regularização']
 
-            grid.eval(y_target,
-                    y_predict,
-                    params=parameter_dict,
-                    model_path='filename',
-                    id= ifold)
+    #         grid.eval(y_target,
+    #                 y_predict,
+    #                 params=parameter_dict,
+    #                 model_path='filename',
+    #                 id= ifold)
             
-    print(grid.as_str())
-    # grid.save_tex("a.tex")
-    print("best param F1: ", grid.get_best_param(Metric.F1))
-    print("best fold F1: ", grid.get_best_fold(Metric.F1))
+    # print(grid.as_str())
+    # # grid.save_tex("a.tex")
+    # print("best param F1: ", grid.get_best_param(Metric.F1))
+    # print("best fold F1: ", grid.get_best_fold(Metric.F1))
 
 
-    params = {
-        'drop out': ["0.2","0.4"],
-        'regularização': [0.2,0.1],
-    }
-    # grid.save_tex("b.tex",params)
-    print(grid.as_str(params))
+    # params = {
+    #     'drop out': ["0.2","0.4"],
+    #     'regularização': [0.2,0.1],
+    # }
+    # # grid.save_tex("b.tex",params)
+    # print(grid.as_str(params))
 
-    print("--- subgrid ---")
-    grid2 = Grid_compiler()
-    metrics = [Metric.F1, Metric.LOG_LOSS, Metric.AUC]
-    for metric in metrics:
-        grid2.add_fold(str(metric),
-                grid.get_best_fold(metric))
+    # print("--- subgrid ---")
+    # grid2 = Grid_compiler()
+    # metrics = [Metric.F1, Metric.LOG_LOSS, Metric.AUC]
+    # for metric in metrics:
+    #     grid2.add_fold(str(metric),
+    #             grid.get_best_fold(metric))
     
-    print(grid2.as_str(metrics=metrics))
+    # print(grid2.as_str(metrics=metrics))
 
-    print("\n--- boxplot ---")
-    grid2.boxplot(Metric.AUC, "boxplot.png")
-    grid2.boxplot(Metric.AUC, "boxplot.tex")
-    grid2.violinplot(Metric.AUC, "violinplot.png")
-    grid2.violinplot(Metric.AUC, "violinplot.tex")
+    # print("\n--- boxplot ---")
+    # grid2.boxplot(Metric.AUC, "boxplot.png")
+    # grid2.boxplot(Metric.AUC, "boxplot.tex")
+    # grid2.violinplot(Metric.AUC, "violinplot.png")
+    # grid2.violinplot(Metric.AUC, "violinplot.tex")
 
 
 

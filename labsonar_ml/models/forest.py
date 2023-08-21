@@ -1,4 +1,4 @@
-import ml.models.base as ml
+import labsonar_ml.models.base as ml
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.utils import compute_class_weight
