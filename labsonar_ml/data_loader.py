@@ -7,10 +7,12 @@ import torch.utils.data as torch_data
 
 class Base_dataset (torch_data.Dataset):
 
-    def __init__(self, samples: List[Tuple[str, str, str]], classes: List[str], runs: Dict[str, List[str]]):
+    def __init__(self, samples: List[Tuple[str, str, str]], classes: List[str], runs: Dict[str, List[str]], transform):
+        super().__init__()
         self._samples = samples
         self._classes = classes
         self._runs = runs
+        self.transform = transform
 
     def __len__(self):
         return len(self._samples)
@@ -40,8 +42,8 @@ class Base_dataset (torch_data.Dataset):
 
 class Dataset_manager (Base_dataset):
 
-    def __init__(self, samples: List[Tuple[str, str, str]], classes: List[str], runs: Dict[str, List[str]]):
-        super().__init__(samples, classes, runs)
+    def __init__(self, samples: List[Tuple[str, str, str]], classes: List[str], runs: Dict[str, List[str]], transform):
+        super().__init__(samples, classes, runs, transform)
 
     def get_loro(self, class_id = None) -> List[Tuple[Type[Base_dataset], Type[Base_dataset]]]:
 
@@ -77,8 +79,8 @@ class Dataset_manager (Base_dataset):
                 else:
                     train.append([image_path, _class_id, _run_id])
 
-            subsets.append([Base_dataset(train, selected_classes, train_runs),
-                            Base_dataset(test, selected_classes, test_runs)])
+            subsets.append([Base_dataset(train, selected_classes, train_runs, self.transform),
+                            Base_dataset(test, selected_classes, test_runs, self.transform)])
 
         return subsets
 
@@ -130,12 +132,12 @@ def init_four_classes_dataset(base_dir: str,
                             if run_id not in _runs[class_id]:
                                 _runs[class_id].append(run_id)
 
-    return Dataset_manager(_samples, _classes, _runs)
+    return Dataset_manager(_samples, _classes, _runs, transform)
 
 
 if __name__ == '__main__':
 
-    base_dir = '/tf/cpe883/data/4classes'
+    base_dir = '/tf/ml/data/4classes'
 
     custom_dataset = init_four_classes_dataset(base_dir)
 
@@ -196,3 +198,4 @@ if __name__ == '__main__':
                     for files in test.get_files(class_id, run_id):
                         print("\t\t\t\t", files)
 
+    print(next(iter(data_loader))[0].size())
