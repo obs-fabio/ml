@@ -34,5 +34,6 @@ def prepare_train_dir(basepath: str, backup=True):
                 new_item_path = os.path.join(new_folder_path, item)
                 shutil.move(item_path, new_item_path)
     else:
-        shutil.rmtree(basepath)
+        if os.path.exists(basepath):
+            shutil.rmtree(basepath)
         os.makedirs(basepath, exist_ok=True)

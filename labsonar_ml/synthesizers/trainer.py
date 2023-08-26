@@ -4,7 +4,6 @@ import tqdm
 import abc
 from abc import abstractmethod
 import numpy as np
-import functools
 import imageio
 
 import torch.utils.data as torch_data
@@ -19,7 +18,7 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         self.batch_size = batch_size
 
     @abstractmethod
-    def train_init(self, data_size: float):
+    def train_init(self, image_dim: typing.List[float]):
         pass
 
     @abstractmethod
@@ -45,9 +44,8 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         data_loader = torch_data.DataLoader(data, batch_size=self.batch_size, shuffle=True)
         image = data.__getitem__(0)[0]
         self.image_dim = list(image.shape)
-        data_size = functools.reduce(lambda x, y: x * y, self.image_dim)
 
-        self.train_init(data_size)
+        self.train_init(self.image_dim)
 
         self.error_list = []
         training_images = []

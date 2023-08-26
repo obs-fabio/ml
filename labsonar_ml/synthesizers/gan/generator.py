@@ -1,20 +1,36 @@
 import torch
+from abc import ABC, abstractmethod
+from overrides import overrides
 
 import labsonar_ml.model.base_model as ml_model
 
-class Generator(ml_model.Base):
-    def __init__(self, input_dim, output_dim, internal_dim=256):
+class Generator(ml_model.Base, ABC):
+
+    def __init__(self):
         super().__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
+
+    @abstractmethod
+    def make_noise(self, n_samples: int, device):
+        return torch.randn(n_samples, self.input_dim, 1, 1, device=device).clone().detach()
+
+    def generate(self, n_samples: int, device):
+        return self(self.make_noise(n_samples=n_samples, device=device)).detach().clone()
+
+
+class GAN(Generator):
+    
+    def __init__(self, latent_dim, feature_dim, internal_dim=256):
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.feature_dim = feature_dim
         self.internal_dim = internal_dim
 
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(input_dim, internal_dim),
+            torch.nn.Linear(latent_dim, internal_dim),
             torch.nn.LeakyReLU(),
             torch.nn.Linear(internal_dim, internal_dim * 2),
             torch.nn.LeakyReLU(),
-            torch.nn.Linear(internal_dim * 2, output_dim),
+            torch.nn.Linear(internal_dim * 2, feature_dim),
             torch.nn.Tanh(),
         )
 
@@ -22,8 +38,39 @@ class Generator(ml_model.Base):
         output = self.model(x)
         return output
 
+    @overrides
     def make_noise(self, n_samples: int, device):
-        return torch.randn(n_samples, self.input_dim, device=device).clone().detach()
+        return torch.randn(n_samples, self.latent_dim, device=device).clone().detach()
 
-    def generate(self, n_samples: int, device):
-        return self(self.make_noise(n_samples=n_samples, device=device)).detach().clone()
+
+class DCGAN(Generator):
+
+    def __init__(self, n_channels: int, latent_dim: int, feature_dim: int):
+        super().__init__()
+        self.n_channels = n_channels
+        self.latent_dim = latent_dim
+        self.feature_dim = feature_dim
+        self.main = torch.nn.Sequential(
+            # input is Z, going into a convolution
+            torch.nn.ConvTranspose2d(self.latent_dim, self.feature_dim * 4, 4, 1, 0, bias=False),
+            torch.nn.BatchNorm2d(self.feature_dim * 4),
+            torch.nn.ReLU(True),
+            # state size - (feature_dim*4) x 4 x 4
+            torch.nn.ConvTranspose2d(self.feature_dim * 4, self.feature_dim * 2, 4, 2, 1, bias=False),
+            torch.nn.BatchNorm2d(self.feature_dim * 2),
+            torch.nn.ReLU(True),
+            # state size - (feature_dim*2) x 8 x 8
+            torch.nn.ConvTranspose2d(self.feature_dim * 2, self.feature_dim, 4, 2, 1, bias=False),
+            torch.nn.BatchNorm2d(self.feature_dim),
+            torch.nn.ReLU(True),
+            # state size - (feature_dim) x 16 x 16
+            torch.nn.ConvTranspose2d(self.feature_dim, self.n_channels, 4, 2, 1, bias=False),
+            torch.nn.Tanh()
+            # state size - n_channels x feature_dim x feature_dim
+        )
+
+    def forward(self, input):
+        return self.main(input)
+
+    def make_noise(self, n_samples: int, device):
+        return torch.randn(n_samples, self.latent_dim, 1, 1, device=device).clone().detach()

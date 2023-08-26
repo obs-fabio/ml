@@ -1,6 +1,9 @@
 import numpy as np
 import PIL
+import enum
 from overrides import overrides
+import functools
+import typing
 
 import torch
 import torchvision
@@ -10,25 +13,23 @@ import labsonar_ml.synthesizers.gan.generator as gan_g
 import labsonar_ml.synthesizers.gan.discriminator as gan_d
 import labsonar_ml.synthesizers.trainer as ml_train
 
+class Type(enum.Enum):
+    GAN = 1,
+    DCGAN = 2
+
 
 class Gan_trainer(ml_train.Base_trainer):
 
     def __init__(self,
+                 type: Type,
                  latent_space_dim: int,
-                 g_model: gan_g.Generator = None, 
-                 d_model: gan_d.Discriminator = None,
-                 g_optimizador = None,
-                 d_optimizador = None,
                  loss_func = None,
                  lr: float = 2e-4,
                  n_epochs: int = 100,
                  batch_size: int = 32):
         super().__init__(n_epochs, batch_size)
 
-        self.g_model = g_model
-        self.d_model = d_model
-        self.g_optimizador = g_optimizador
-        self.d_optimizador = d_optimizador
+        self.type = type
         self.loss_func = loss_func if loss_func is not None else torch.nn.BCELoss(reduction='sum')
         self.lr = lr
         self.latent_space_dim = latent_space_dim
@@ -65,30 +66,48 @@ class Gan_trainer(ml_train.Base_trainer):
         loss.backward()
 
         self.g_optimizador.step()
+
         return loss.tolist()
 
     @overrides
-    def train_init(self, data_size: float):
-        
-        self.g_model = self.g_model if self.g_model is not None else \
-                gan_g.Generator(input_dim = self.latent_space_dim,
-                                output_dim = data_size)
-        self.d_model = self.d_model if self.d_model is not None else \
-                gan_d.Discriminator(input_dim = data_size)
-        
+    def train_init(self, image_dim: typing.List[float]):
+
+        if self.type == Type.GAN:
+
+            image_dim = functools.reduce(lambda x, y: x * y, image_dim)
+
+            self.g_model = gan_g.GAN(latent_dim = self.latent_space_dim,
+                                    feature_dim = image_dim)
+            self.d_model = gan_d.GAN(feature_dim = image_dim)
+            
+        elif self.type == Type.DCGAN:
+
+            n_channels = image_dim[0]
+            feature_dim = image_dim[1]
+            
+            self.g_model = gan_g.DCGAN(n_channels = n_channels,
+                                        latent_dim = self.latent_space_dim,
+                                        feature_dim = feature_dim)
+            self.d_model = gan_d.DCGAN(n_channels = n_channels,
+                                        feature_dim = feature_dim)
+
+        else:
+            raise UnboundLocalError("Model " + str(type) + " not implemented")
+
         self.g_model = self.g_model.to(self.device)
         self.d_model = self.d_model.to(self.device)
 
-        self.g_optimizador = self.g_optimizador if self.g_optimizador is not None else \
-                torch.optim.Adam(self.g_model.parameters(), lr = self.lr)
-        self.d_optimizador = self.d_optimizador if self.d_optimizador is not None else \
-                torch.optim.Adam(self.d_model.parameters(), lr = self.lr)
+        self.g_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.lr)
+        self.d_optimizador = torch.optim.Adam(self.d_model.parameters(), lr = self.lr)
 
     @overrides
     def train_step(self, samples) -> np.ndarray:
         n_samples = samples.size(0)
 
-        real_data = torch.autograd.variable.Variable(ml_utils.images_to_vectors(samples))
+        if self.type == Type.GAN:
+            real_data = torch.autograd.variable.Variable(ml_utils.images_to_vectors(samples))
+        else:
+            real_data = samples
         fake_data = self.g_model.generate(n_samples, self.device)
         d_error = self.discriminator_step(real_data, fake_data)
 
@@ -96,7 +115,7 @@ class Gan_trainer(ml_train.Base_trainer):
         g_error = self.generator_step(fake_data)
 
         return np.array([d_error, g_error])
-    
+
     @overrides
     def generate(self, n_samples, transform = None):
 
