@@ -9,8 +9,8 @@ import labsonar_ml.synthesizers.gan.gan_trainer as ml_gan
 import labsonar_ml.model.base_model as ml_model
 import labsonar_ml.utils.utils as ml_utils
 
-types = [ml_gan.Type.GAN]
-# types = [ml_gan.Type.DCGAN]
+# types = [ml_gan.Type.GAN]
+types = [ml_gan.Type.DCGAN]
 # types = [ml_gan.Type.DCGAN, ml_gan.Type.DCGAN]
 
 data_dir = '/tf/ml/data/'
@@ -25,20 +25,7 @@ lr = 2e-4
 reset=True
 backup_old = False
 train = True
-evalueate = False
-
-
-def get_mnist_dataset_as_specialist(datapath: str = "data/", batch_size: int = 32, specialist_class_number: int = 1):
-    transform = torchvision.transforms.Compose([
-                                    torchvision.transforms.Resize(32, antialias=True),
-                                    torchvision.transforms.ToTensor(),
-                                    torchvision.transforms.Normalize((0.5,), (0.5,))])
-    
-    train = torchvision.datasets.MNIST(root=datapath, train=True, download=True, transform=transform)
-    
-    targets_idx = train.targets.detach().clone() == specialist_class_number
-
-    return torch_data.dataset.Subset(train, np.where(targets_idx)[0])
+evalueate = True
 
 for type in types:
 
@@ -67,7 +54,7 @@ for type in types:
                 os.path.exists(training_history_file):
                 continue
 
-            train = get_mnist_dataset_as_specialist(datapath = data_dir, batch_size = batch_size, specialist_class_number = class_id)
+            train = ml_utils.get_mnist_dataset_as_specialist(datapath = data_dir, batch_size = batch_size, specialist_class_number = class_id)
 
             trainer = ml_gan.Gan_trainer(type = type,
                                         latent_space_dim = latent_space_dim,

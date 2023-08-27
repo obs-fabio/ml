@@ -8,13 +8,14 @@ class Generator(ml_model.Base, ABC):
 
     def __init__(self):
         super().__init__()
+        self.model = None
 
     @abstractmethod
     def make_noise(self, n_samples: int, device):
-        return torch.randn(n_samples, self.input_dim, 1, 1, device=device).clone().detach()
+        pass
 
     def generate(self, n_samples: int, device):
-        return self(self.make_noise(n_samples=n_samples, device=device)).detach().clone()
+        return self(self.make_noise(n_samples=n_samples, device=device))
 
 
 class GAN(Generator):
@@ -40,7 +41,8 @@ class GAN(Generator):
 
     @overrides
     def make_noise(self, n_samples: int, device):
-        return torch.randn(n_samples, self.latent_dim, device=device).clone().detach()
+        return torch.autograd.variable.Variable(torch.randn(n_samples, self.latent_dim)).to(device)
+        # return torch.randn(n_samples, self.latent_dim, device=device)
 
 
 class DCGAN(Generator):
@@ -72,5 +74,7 @@ class DCGAN(Generator):
     def forward(self, input):
         return self.main(input)
 
+    @overrides
     def make_noise(self, n_samples: int, device):
-        return torch.randn(n_samples, self.latent_dim, 1, 1, device=device).clone().detach()
+        return torch.autograd.variable.Variable(torch.randn(n_samples, self.latent_dim, 1, 1)).to(device)
+        # return torch.randn(n_samples, self.latent_dim, 1, 1, device=device).clone().detach()

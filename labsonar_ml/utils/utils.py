@@ -1,10 +1,14 @@
 import os
 import datetime
 import shutil
+import numpy as np
 import torch
+import torchvision
+import torch.utils.data as torch_data
 
 def get_available_device():
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    return 'cpu'
+    # return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def images_to_vectors(images):
     return images.view(images.size(0), -1)
@@ -37,3 +41,15 @@ def prepare_train_dir(basepath: str, backup=True):
         if os.path.exists(basepath):
             shutil.rmtree(basepath)
         os.makedirs(basepath, exist_ok=True)
+
+def get_mnist_dataset_as_specialist(datapath: str = "data/", specialist_class_number: int = 1):
+    transform = torchvision.transforms.Compose([
+                                    torchvision.transforms.Resize(32, antialias=True),
+                                    torchvision.transforms.ToTensor(),
+                                    torchvision.transforms.Normalize((0.5,), (0.5,))])
+    
+    train = torchvision.datasets.MNIST(root=datapath, train=True, download=True, transform=transform)
+    
+    targets_idx = train.targets.detach().clone() == specialist_class_number
+
+    return torch_data.dataset.Subset(train, np.where(targets_idx)[0])
