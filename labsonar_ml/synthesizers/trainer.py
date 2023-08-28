@@ -59,6 +59,6 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
                     training_images.append(self.generate(1)[0])
 
         if export_progress_file is not None:
-            imageio.mimsave(export_progress_file, training_images, 'GIF', duration=0.5)
+            imageio.mimsave(export_progress_file, training_images, 'GIF', duration=5/len(training_images)) # salva giff com duração de 5segundos independente do numero de batch de treinamento
 
         return np.array(self.error_list)

@@ -26,8 +26,8 @@ import labsonar_ml.model.base_model as ml_model
 import labsonar_ml.utils.utils as ml_utils
 
 # types = [ml_gan.Type.GAN]
-types = [ml_gan.Type.DCGAN]
-# types = [ml_gan.Type.DCGAN, ml_gan.Type.DCGAN]
+# types = [ml_gan.Type.DCGAN]
+types = [ml_gan.Type.GAN, ml_gan.Type.DCGAN]
 
 data_dir = '/tf/ml/data/4classes'
 base_dir = '/tf/ml/results/'
@@ -35,12 +35,12 @@ output_dir = 'output'
 training_dir = 'training'
 batch_size = 32
 latent_space_dim=256
-n_epochs=200
+n_epochs=2000
 n_samples=128
 lr = 2e-4
-reset=True
-backup_old = False
-train = True
+reset=False
+backup_old = True
+train = False
 evaluate = True
 one_run_only = False
 

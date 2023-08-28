@@ -4,6 +4,11 @@ from PIL import Image
 import torchvision
 import torch.utils.data as torch_data
 
+def read_image(image_file, transform = None) -> Image:
+    image = Image.open(image_file).convert('RGB')
+    if transform:
+        image = transform(image)
+    return image
 
 class Base_dataset (torch_data.Dataset):
 
@@ -18,13 +23,9 @@ class Base_dataset (torch_data.Dataset):
         return len(self._samples)
 
     def __getitem__(self, idx):
-        image_path, class_id, run_id = self._samples[idx]
-        image = Image.open(image_path).convert('RGB')
-
-        if self.transform:
-            image = self.transform(image)
-
-        return image, class_id, run_id
+        image_path, class_id, _ = self._samples[idx]
+        image = read_image(image_path, self.transform)
+        return image, class_id
 
     def get_classes(self):
         return self._classes.copy()
@@ -35,7 +36,7 @@ class Base_dataset (torch_data.Dataset):
     def get_files(self, class_id: str, run_id: str) -> List[str]:
         files = []
         for image_path, _class_id, _run_id in self._samples:
-            if class_id == _class_id and run_id == _run_id:
+            if (class_id == _class_id and ((run_id == _run_id) or run_id == None)) or class_id == None:
                 files.append(image_path)
         return files
 
@@ -101,7 +102,8 @@ def init_four_classes_dataset(base_dir: str,
     if transform is None:
         transform = torchvision.transforms.Compose([
                 torchvision.transforms.Grayscale(),
-                torchvision.transforms.ToTensor()
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.Normalize((0.5,), (0.5,))
             ])
     else:
         transform = transform
