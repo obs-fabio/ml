@@ -9,21 +9,21 @@ import labsonar_ml.synthesizers.gan.gan_trainer as ml_gan
 import labsonar_ml.model.base_model as ml_model
 import labsonar_ml.utils.utils as ml_utils
 
-# types = [ml_gan.Type.GAN]
-types = [ml_gan.Type.DCGAN]
-# types = [ml_gan.Type.DCGAN, ml_gan.Type.DCGAN]
+types = [ml_gan.Type.GAN]
+# types = [ml_gan.Type.DCGAN]
+# types = [ml_gan.Type.GAN, ml_gan.Type.DCGAN]
 
 data_dir = '/tf/ml/data/'
 base_dir = '/tf/ml/test_results/'
 output_dir = 'output'
 training_dir = 'training'
 batch_size = 32
-latent_space_dim=100
-n_epochs=20
-n_samples=100
+latent_space_dim=128
+n_epochs=64
+n_samples=128
 lr = 2e-4
-reset=True
-backup_old = False
+reset=False
+backup_old = True
 train = True
 evalueate = True
 
@@ -45,7 +45,7 @@ for type in types:
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(training_dir, exist_ok=True)
 
-        for class_id in tqdm.tqdm(range(1), desc="Class"):
+        for class_id in tqdm.tqdm(range(10), desc="Class"):
 
             trainer_file = os.path.join(training_dir, 'trainer_{:d}.plk'.format(class_id))
             training_history_file = os.path.join(training_dir, 'training_history_{:d}.png'.format(class_id))
@@ -54,7 +54,7 @@ for type in types:
                 os.path.exists(training_history_file):
                 continue
 
-            train = ml_utils.get_mnist_dataset_as_specialist(datapath = data_dir, batch_size = batch_size, specialist_class_number = class_id)
+            train = ml_utils.get_mnist_dataset_as_specialist(datapath = data_dir, specialist_class_number = class_id)
 
             trainer = ml_gan.Gan_trainer(type = type,
                                         latent_space_dim = latent_space_dim,
@@ -66,8 +66,9 @@ for type in types:
             epochs = range(1, errors.shape[0] + 1)
 
             plt.figure(figsize=(10, 6))
-            plt.plot(epochs, errors[:,0], label='Generator Error')
-            plt.plot(epochs, errors[:,1], label='Discriminator Error')
+            plt.plot(epochs, errors[:,0], label='Discriminator Real Error')
+            plt.plot(epochs, errors[:,1], label='Discriminator Fake Error')
+            plt.plot(epochs, errors[:,2], label='Generator Error')
             plt.xlabel('Epochs')
             plt.ylabel('Error')
             plt.title('Generator and Discriminator Errors per Epoch')
@@ -78,7 +79,7 @@ for type in types:
 
     if evalueate:
 
-        for class_id in tqdm.tqdm(range(1), desc="Class"):
+        for class_id in tqdm.tqdm(range(10), desc="Class"):
 
             trainer_file = os.path.join(training_dir, 'trainer_{:d}.plk'.format(class_id))
             

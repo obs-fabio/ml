@@ -49,22 +49,14 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
 
         self.error_list = []
         training_images = []
-        for epoch in tqdm.tqdm(range(self.n_epochs), leave=False, desc="Epochs"):
-            epoch_error_accum = None
+        for _ in tqdm.tqdm(range(self.n_epochs), leave=False, desc="Epochs"):
 
-            for n_batch, (samples, _) in enumerate(data_loader):
+            for bacth, (samples, _) in enumerate(data_loader):
                 error = self.train_step(samples)
-
-                if epoch_error_accum is None:
-                    epoch_error_accum = error
-                else:
-                    error = np.sum([epoch_error_accum, error])
+                self.error_list.append(list(error))
 
                 if export_progress_file is not None:
                     training_images.append(self.generate(1)[0])
-
-            self.error_list.append(list(epoch_error_accum/len(data_loader.dataset)))
-
 
         if export_progress_file is not None:
             imageio.mimsave(export_progress_file, training_images, 'GIF', duration=0.5)

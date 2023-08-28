@@ -53,7 +53,7 @@ class Gan_trainer(ml_train.Base_trainer):
 
         self.d_optimizador.step()
 
-        return (real_loss + fake_loss).tolist()
+        return real_loss.tolist(), fake_loss.tolist()
 
     def generator_step(self, fake_data) -> float:
         n_samples = fake_data.size(0)
@@ -109,12 +109,12 @@ class Gan_trainer(ml_train.Base_trainer):
         else:
             real_data = samples
         fake_data = self.g_model.generate(n_samples, self.device)
-        d_error = self.discriminator_step(real_data, fake_data)
+        d_real_error, d_fake_error = self.discriminator_step(real_data, fake_data)
 
         fake_data = self.g_model.generate(n_samples, self.device)
         g_error = self.generator_step(fake_data)
 
-        return np.array([d_error, g_error])
+        return np.array([d_real_error, d_fake_error, g_error])
 
     @overrides
     def generate(self, n_samples, transform = None):

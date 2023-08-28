@@ -7,8 +7,22 @@ import torchvision
 import torch.utils.data as torch_data
 
 def get_available_device():
-    return 'cpu'
-    # return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def print_available_device():
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+        print(f"Using GPU: {torch.cuda.get_device_name(device)}")
+    else:
+        print("No GPU available, using CPU.")
+
+def get_files(directory: str, extension: str):
+	file_list = []
+	for root, _, files in os.walk(directory):
+		for file in files:
+			if file.endswith(extension):
+				file_list.append(os.path.join(root, file))
+	return sorted(file_list)
 
 def images_to_vectors(images):
     return images.view(images.size(0), -1)

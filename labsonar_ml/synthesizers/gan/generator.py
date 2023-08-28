@@ -1,3 +1,4 @@
+import math
 import torch
 from abc import ABC, abstractmethod
 from overrides import overrides
@@ -52,27 +53,35 @@ class DCGAN(Generator):
         self.n_channels = n_channels
         self.latent_dim = latent_dim
         self.feature_dim = feature_dim
-        self.main = torch.nn.Sequential(
-            # input is Z, going into a convolution
-            torch.nn.ConvTranspose2d(self.latent_dim, self.feature_dim * 4, 4, 1, 0, bias=False),
-            torch.nn.BatchNorm2d(self.feature_dim * 4),
+
+        num_layers = int(round(math.log2(feature_dim)-3)) # aumentar 4-> feature_dim/2 - considerando seguidas multiplicações por 2
+
+        # input is batch_size x (latent_dim)  - batch x imagem
+        layers = [
+            torch.nn.ConvTranspose2d(self.latent_dim, self.feature_dim * (2**num_layers), 4, 1, 0, bias=False),
+            torch.nn.BatchNorm2d(self.feature_dim * (2**num_layers)),
             torch.nn.ReLU(True),
-            # state size - (feature_dim*4) x 4 x 4
-            torch.nn.ConvTranspose2d(self.feature_dim * 4, self.feature_dim * 2, 4, 2, 1, bias=False),
-            torch.nn.BatchNorm2d(self.feature_dim * 2),
-            torch.nn.ReLU(True),
-            # state size - (feature_dim*2) x 8 x 8
-            torch.nn.ConvTranspose2d(self.feature_dim * 2, self.feature_dim, 4, 2, 1, bias=False),
-            torch.nn.BatchNorm2d(self.feature_dim),
-            torch.nn.ReLU(True),
-            # state size - (feature_dim) x 16 x 16
+        ]
+        # state size - (batch_size) x (4 x 4)
+
+        for i in range(num_layers,0,-1):
+            layers.extend([
+                torch.nn.ConvTranspose2d(self.feature_dim * (2**i), self.feature_dim * (2**(i-1)), 4, 2, 1, bias=False),
+                torch.nn.BatchNorm2d(self.feature_dim * (2**(i-1))),
+                torch.nn.ReLU(True),
+            ])
+
+        # state size - (batch_size) x (feature_dim/2 x feature_dim/2)
+        layers.extend([
             torch.nn.ConvTranspose2d(self.feature_dim, self.n_channels, 4, 2, 1, bias=False),
             torch.nn.Tanh()
-            # state size - n_channels x feature_dim x feature_dim
-        )
+        ])
+
+        # state size - (batch_size) x (n_channels x feature_dim x feature_dim)
+        self.model = torch.nn.Sequential(*layers)
 
     def forward(self, input):
-        return self.main(input)
+        return self.model(input)
 
     @overrides
     def make_noise(self, n_samples: int, device):
