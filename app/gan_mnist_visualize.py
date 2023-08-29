@@ -34,7 +34,7 @@ def read_images(files, transform = None):
         images.append(image.tolist())
     return np.array(images)
 
-print(ml_utils.print_available_device())
+ml_utils.print_availprintable_device()
 
 all_data = []
 all_labels = []

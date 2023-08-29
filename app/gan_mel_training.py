@@ -44,7 +44,7 @@ train = False
 evaluate = True
 one_run_only = False
 
-print(ml_utils.print_available_device())
+ml_utils.print_available_device()
 
 for type in types:
 

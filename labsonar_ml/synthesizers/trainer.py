@@ -59,6 +59,18 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
                     training_images.append(self.generate(1)[0])
 
         if export_progress_file is not None:
-            imageio.mimsave(export_progress_file, training_images, 'GIF', duration=5/len(training_images)) # salva giff com duração de 5segundos independente do numero de batch de treinamento
+            target_size = 20*60
+            if len(training_images) > target_size:
+                n_images = len(training_images)
+                interval = n_images // target_size
+                remainder = n_images % target_size
+                
+                filtered_images = []
+                for i in range(target_size):
+                    idx = i * interval + min(i, remainder)
+                    filtered_images.append(training_images[idx])
+                training_images = filtered_images
+
+            imageio.mimsave(export_progress_file, training_images, 'GIF', duration=1/60)
 
         return np.array(self.error_list)

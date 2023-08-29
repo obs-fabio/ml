@@ -46,50 +46,50 @@ class Dataset_manager (Base_dataset):
     def __init__(self, samples: List[Tuple[str, str, str]], classes: List[str], runs: Dict[str, List[str]], transform):
         super().__init__(samples, classes, runs, transform)
 
-    def get_loro(self, class_id = None) -> List[Tuple[Type[Base_dataset], Type[Base_dataset]]]:
+    def get_loro(self) -> List[Tuple[Type[Base_dataset], Type[Base_dataset], Type[Base_dataset]]]:
 
         max_runs = 0
-        selected_classes = self._classes if class_id == None else [class_id]
-        for class_id in selected_classes:
+        for class_id in self._classes:
             max_runs = max(max_runs, len(self._runs[class_id]))
 
         subsets = []
         for run_index in range(max_runs):
             test = []
+            val = []
             train = []
             train_runs = {}
+            val_runs = {}
             test_runs = {}
 
-            for _class_id in selected_classes:
+            for _class_id in self._classes:
 
-                if _class_id not in selected_classes:
-                    continue
+                test_index = run_index % len(self._runs[_class_id])
+                val_index = (run_index + 1) % len(self._runs[_class_id])
 
                 train_runs[_class_id] = [run for index, run in enumerate(self._runs[_class_id])
-                                         if run_index % len(self._runs[_class_id]) != index]
+                                         if index not in [test_index, val_index]]
 
-                test_runs[_class_id] = [self._runs[_class_id][run_index % len(self._runs[_class_id])]]
+                val_runs[_class_id] = [self._runs[_class_id][val_index]]
+
+                test_runs[_class_id] = [self._runs[_class_id][test_index]]
 
             for image_path, _class_id, _run_id in self._samples:
 
-                if _class_id not in selected_classes:
-                    continue
+                test_index = run_index % len(self._runs[_class_id])
+                val_index = (run_index + 1) % len(self._runs[_class_id])
 
-                if (run_index % len(self._runs[_class_id])) == self._runs[_class_id].index(_run_id):
+                if test_index == self._runs[_class_id].index(_run_id):
                     test.append([image_path, _class_id, _run_id])
+                elif val_index == self._runs[_class_id].index(_run_id):
+                    val.append([image_path, _class_id, _run_id])
                 else:
                     train.append([image_path, _class_id, _run_id])
 
-            subsets.append([Base_dataset(train, selected_classes, train_runs, self.transform),
-                            Base_dataset(test, selected_classes, test_runs, self.transform)])
+            subsets.append([Base_dataset(train, self._classes, train_runs, self.transform),
+                            Base_dataset(val, self._classes, val_runs, self.transform),
+                            Base_dataset(test, self._classes, test_runs, self.transform)])
 
         return subsets
-
-    def get_specialist_loro(self) -> List[Tuple[str, List[Tuple[Type[Base_dataset], Type[Base_dataset]]]]]:
-        class_datasets = []
-        for class_id in self._classes:
-            class_datasets.append([class_id, self.get_loro(class_id)])
-        return class_datasets
 
 
 def init_four_classes_dataset(base_dir: str,
@@ -139,65 +139,31 @@ def init_four_classes_dataset(base_dir: str,
 
 if __name__ == '__main__':
 
-    base_dir = '/tf/ml/data/4classes'
+    base_dir = './data/4classes'
 
     custom_dataset = init_four_classes_dataset(base_dir)
 
-    print("###############")
-    for class_id in custom_dataset.get_classes():
-        for run_id in custom_dataset.get_runs(class_id):
-            for file in custom_dataset.get_files(class_id, run_id):
-                print(class_id,"  ", run_id, " : ", file)
+    n_fold = len(custom_dataset.get_loro())
+    for i_fold, (train, val, test) in enumerate(custom_dataset.get_loro()):
 
-
-    print("\n###############")
-    for train, test in custom_dataset.get_loro():
+        print("### fold ", i_fold, "/", n_fold)
 
         batch_size = 32
-        data_loader = torch_data.DataLoader(train, batch_size=batch_size, shuffle=True)
-        data_loader = torch_data.DataLoader(test, batch_size=batch_size, shuffle=True)
+        train_loader = torch_data.DataLoader(train, batch_size=batch_size, shuffle=True)
+        val_loader = torch_data.DataLoader(val, batch_size=batch_size, shuffle=True)
+        test_loader = torch_data.DataLoader(test, batch_size=batch_size, shuffle=True)
 
-        print("\tTrain: ", train.get_classes())
+        print("\tTrain: ")
         for class_id in train.get_classes():
-            print("\t\t", train.get_runs(class_id))
+            print("\t\t", class_id,":", train.get_runs(class_id))
 
-        print("\tTest: ", test.get_classes())
+        print("\tValidação: ")
+        for class_id in val.get_classes():
+            print("\t\t", class_id,":", val.get_runs(class_id))
+
+        print("\tTest: ")
         for class_id in test.get_classes():
-            print("\t\t", test.get_runs(class_id))
+            print("\t\t", class_id,":", test.get_runs(class_id))
 
-            for run_id in test.get_runs(class_id):
-                print("\t\t\t", run_id, " -> ", test.__len__() ," -> " , len(test.get_files(class_id, run_id)))
-
-                for files in test.get_files(class_id, run_id):
-                    print("\t\t\t\t", files)
-
-
-    print("\n###############")
-    for class_id, loro in custom_dataset.get_specialist_loro():
-
-        print("## Class: ", class_id)
-        for train, test in loro:
-
-            batch_size = 32
-            data_loader = torch_data.DataLoader(train, batch_size=batch_size, shuffle=True)
-            data_loader = torch_data.DataLoader(test, batch_size=batch_size, shuffle=True)
-
-            print("\t\tTrain: ", train.get_classes())
-            for class_id in train.get_classes():
-
-                for run_id in train.get_runs(class_id):
-                    print("\t\t\t", run_id, " -> ", len(train.get_files(class_id, run_id)))
-
-                    for files in train.get_files(class_id, run_id):
-                        print("\t\t\t\t", files)
-
-            print("\t\tTest: ", test.get_classes())
-            for class_id in test.get_classes():
-
-                for run_id in test.get_runs(class_id):
-                    print("\t\t\t", run_id, " -> ", len(test.get_files(class_id, run_id)))
-
-                    for files in test.get_files(class_id, run_id):
-                        print("\t\t\t\t", files)
-
-    print(next(iter(data_loader))[0].size())
+    for samples, classes in test_loader:
+        print(classes)
