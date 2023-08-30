@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from typing import Type, List, Dict, Tuple
 from PIL import Image
 import torchvision
@@ -18,6 +19,10 @@ class Base_dataset (torch_data.Dataset):
         self._classes = classes
         self._runs = runs
         self.transform = transform
+        self.specialist_class = None
+
+    def set_specialist_class(self, class_id):
+        self.specialist_class = class_id
 
     def __len__(self):
         return len(self._samples)
@@ -25,7 +30,7 @@ class Base_dataset (torch_data.Dataset):
     def __getitem__(self, idx):
         image_path, class_id, _ = self._samples[idx]
         image = read_image(image_path, self.transform)
-        return image, class_id
+        return image, class_id if self.specialist_class is None else float(class_id == self.specialist_class)
 
     def get_classes(self):
         return self._classes.copy()
@@ -39,6 +44,14 @@ class Base_dataset (torch_data.Dataset):
             if (class_id == _class_id and ((run_id == _run_id) or run_id == None)) or class_id == None:
                 files.append(image_path)
         return files
+
+    def filt_dataset(self, class_id: str):
+        samples = []
+        for image_path, _class_id, _run_id in self._samples:
+            if class_id == _class_id:
+                samples.append([image_path, _class_id, _run_id])
+
+        return Base_dataset(samples, [class_id], self.get_runs(class_id), self.transform)
 
 
 class Dataset_manager (Base_dataset):
@@ -143,6 +156,8 @@ if __name__ == '__main__':
 
     custom_dataset = init_four_classes_dataset(base_dir)
 
+    lengths = []
+
     n_fold = len(custom_dataset.get_loro())
     for i_fold, (train, val, test) in enumerate(custom_dataset.get_loro()):
 
@@ -157,6 +172,8 @@ if __name__ == '__main__':
         for class_id in train.get_classes():
             print("\t\t", class_id,":", train.get_runs(class_id))
 
+            lengths.append(len(train.get_files(class_id, None)))
+
         print("\tValidação: ")
         for class_id in val.get_classes():
             print("\t\t", class_id,":", val.get_runs(class_id))
@@ -167,3 +184,6 @@ if __name__ == '__main__':
 
     for samples, classes in test_loader:
         print(classes)
+
+    print(lengths)
+    print(np.max(np.array(lengths)))

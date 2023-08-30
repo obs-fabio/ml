@@ -9,8 +9,8 @@ import labsonar_ml.synthesizers.gan.gan_trainer as ml_gan
 import labsonar_ml.model.base_model as ml_model
 import labsonar_ml.utils.utils as ml_utils
 
-types = [ml_gan.Type.GAN]
-# types = [ml_gan.Type.DCGAN]
+# types = [ml_gan.Type.GAN]
+types = [ml_gan.Type.DCGAN]
 # types = [ml_gan.Type.GAN, ml_gan.Type.DCGAN]
 
 data_dir = '/tf/ml/data/'
@@ -22,7 +22,7 @@ latent_space_dim=128
 n_epochs=64
 n_samples=128
 lr = 2e-4
-reset=False
+reset=True
 backup_old = True
 train = True
 evalueate = True
@@ -60,7 +60,7 @@ for type in types:
                                         latent_space_dim = latent_space_dim,
                                         n_epochs = n_epochs,
                                         lr = lr)
-            errors = trainer.fit(data = train, export_progress_file=os.path.join(training_dir, "training_history_{:d}.gif".format(class_id)))
+            errors = trainer.fit(data = train, export_progress_file=os.path.join(training_dir, "training_history_{:d}.mp4".format(class_id)))
 
             trainer.save(trainer_file)
             epochs = range(1, errors.shape[0] + 1)

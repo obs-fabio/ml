@@ -47,6 +47,8 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
 
         self.train_init(self.image_dim)
 
+        video_target_size = 15*30
+
         self.error_list = []
         training_images = []
         for _ in tqdm.tqdm(range(self.n_epochs), leave=False, desc="Epochs"):
@@ -55,22 +57,25 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
                 error = self.train_step(samples)
                 self.error_list.append(list(error))
 
-                if export_progress_file is not None:
+                if export_progress_file is not None and self.n_epochs < video_target_size:
                     training_images.append(self.generate(1)[0])
 
+            if export_progress_file is not None and self.n_epochs >= video_target_size:
+                training_images.append(self.generate(1)[0])
+
         if export_progress_file is not None:
-            target_size = 20*60
-            if len(training_images) > target_size:
+            if len(training_images) > video_target_size:
                 n_images = len(training_images)
-                interval = n_images // target_size
-                remainder = n_images % target_size
+                interval = n_images // video_target_size
+                remainder = n_images % video_target_size
                 
                 filtered_images = []
-                for i in range(target_size):
+                for i in range(video_target_size):
                     idx = i * interval + min(i, remainder)
                     filtered_images.append(training_images[idx])
                 training_images = filtered_images
 
-            imageio.mimsave(export_progress_file, training_images, 'GIF', duration=1/60)
+            imageio.mimsave(export_progress_file, training_images, format='FFMPEG', codec='libx264', fps=30)
+            # imageio.mimsave(export_progress_file, training_images, 'GIF', duration=1/60)
 
         return np.array(self.error_list)

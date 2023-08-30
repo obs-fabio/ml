@@ -1,79 +1,65 @@
 import os, tqdm
 import numpy as np
-import torch
 
 import labsonar_ml.synthesizers.gan.gan_trainer as ml_gan
 import labsonar_ml.utils.utils as ml_utils
 import labsonar_ml.utils.visualization as ml_vis
-import labsonar_ml.data_loader as ml_data
+import app.config as config
 
-types = [ml_gan.Type.GAN, ml_gan.Type.DCGAN]
+trainings_dict = [
+    {
+        'type': ml_gan.Type.GAN,
+        'dir': config.Training.GAN,
+    },
+    {
+        'type': ml_gan.Type.DCGAN,
+        'dir': config.Training.DCGAN,
+    }
+]
 
-data_dir = '/tf/ml/data/4classes'
-base_input_dir = '/tf/ml/results/'
-syntetic_data_dir = 'output'
-plot_base_dir = 'plots'
 reset=True
-backup_old = False
+backup=False
 
-def read_images(files, transform = None):
-    images = []
-    for file in files:
-        image = ml_data.read_image(file, transform)
-        image = image.view(-1)
-        images.append(image.tolist())
-    return np.array(images)
+ml_utils.print_available_device()
 
-print(ml_utils.print_available_device())
+for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
-custom_dataset = ml_data.init_four_classes_dataset(data_dir)
+    for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
 
-all_data = []
-all_labels = []
+        plot_dir = config.get_result_dir(i_fold, config.Training.PLOTS)
 
-for type in types:
+        data = None
+        labels = []
 
-    type_dir = os.path.join(base_input_dir, type.name.lower())
-    syntetic_dir = os.path.join(type_dir, syntetic_data_dir)
-    plot_dir = os.path.join(type_dir, plot_base_dir)
+        for class_id in train_dataset.get_classes():
 
-    if reset:
-        ml_utils.prepare_train_dir(plot_dir, backup=backup_old)
-    else:
-        os.makedirs(plot_dir, exist_ok=True)
+            output_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.OUTPUT)
+            output_dir = os.path.join(output_dir, class_id)
 
-    data = None
-    labels = []
+            files = train_dataset.get_files(class_id=class_id, run_id=None)
+            if files:
+                images = ml_utils.read_images(files, transform=train_dataset.transform)
 
-    for class_id in custom_dataset.get_classes():
+                if data is None:
+                    data = images
+                else:
+                    data = np.concatenate((data, images), axis=0)
 
-        class_output_dir = os.path.join(syntetic_dir,"{:s}".format(class_id))
+                label = "{:s}_real".format(class_id)
+                labels.extend([label] * images.shape[0])
 
-        files = custom_dataset.get_files(class_id=class_id, run_id=None)
-        if files:
-            images = read_images(files, transform=custom_dataset.transform)
+            files = ml_utils.get_files(output_dir, 'png')
+            if files:
+                images = ml_utils.read_images(files, transform=train_dataset.transform)
 
-            if data is None:
-                data = images
-            else:
                 data = np.concatenate((data, images), axis=0)
 
-            label = "{:s}_real".format(class_id)
-            labels.extend([label] * images.shape[0])
+                label = f"{class_id}_{training_dict['type'].name.lower()}"
+                labels.extend([label] * images.shape[0])
 
-        files = ml_utils.get_files(class_output_dir, 'png')
-        if files:
-            images = read_images(files, transform=custom_dataset.transform)
+        if data is None:
+            continue
 
-            data = np.concatenate((data, images), axis=0)
+        ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_tse.png".format()))
 
-            label = "{:s}_{:s}".format(class_id, type.name.lower())
-            labels.extend([label] * images.shape[0])
-
-    if data is None:
-        continue
-
-    print(data.shape)
-    ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, "{:s}_tse.png".format(type.name.lower())))
-
-# ml_vis.export_tsne(all_data, all_labels, filename=os.path.join(base_input_dir, "gans_tse.png"))
+    # ml_vis.export_tsne(all_data, all_labels, filename=os.path.join(base_input_dir, "gans_tse.png"))
