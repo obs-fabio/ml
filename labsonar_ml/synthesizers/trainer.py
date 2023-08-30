@@ -5,10 +5,13 @@ import abc
 from abc import abstractmethod
 import numpy as np
 import imageio
+import PIL
 
 import torch.utils.data as torch_data
+import torchvision
 
 import labsonar_ml.model.base_model as ml_model
+import labsonar_ml.utils.utils as ml_utils
 
 class Base_trainer(ml_model.Serializable, abc.ABC):
 
@@ -34,8 +37,28 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         pass
 
     @abstractmethod
-    def generate(self, n_samples, transform = None):
+    def generate_samples(self, n_samples):
         pass
+
+    def generate_images(self, n_samples, transform = None):
+
+        if transform is None:
+            transform = torchvision.transforms.Normalize(mean= -1, std= 2)
+
+        generated_samples = self.generate_samples(n_samples)
+        generated_imgs = ml_utils.vectors_to_images(vectors = generated_samples, image_dim=self.image_dim)
+
+        desnorm_imgs = transform(generated_imgs)
+        desnorm_imgs = desnorm_imgs.cpu().detach()
+
+        images = []
+        for i in range(n_samples):
+            data = (desnorm_imgs[i].permute(1, 2, 0)).numpy()
+            data = data.reshape((data.shape[0], data.shape[1]))
+            data = (data * 255).astype(np.uint8)
+            images.append(PIL.Image.fromarray(data, mode='L'))
+
+        return images
 
     def fit(self,
             data: torch_data.Dataset,
@@ -79,3 +102,4 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
             # imageio.mimsave(export_progress_file, training_images, 'GIF', duration=1/60)
 
         return np.array(self.error_list)
+
