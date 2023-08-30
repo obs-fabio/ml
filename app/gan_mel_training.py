@@ -12,32 +12,34 @@ import labsonar_ml.data_loader as ml_data
 import app.config as config
 
 trainings_dict = [
-    {
-        'type': ml_gan.Type.GAN,
-        'dir': config.Training.GAN,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4
-    },
+    # {
+    #     'type': ml_gan.Type.GAN,
+    #     'dir': config.Training.GAN,
+    #     'batch_size': 32,
+    #     'n_epochs': 2048,
+    #     'latent_space_dim': 128,
+    #     'n_samples': 256,
+    #     'lr': 2e-4
+    # },
     {
         'type': ml_gan.Type.DCGAN,
         'dir': config.Training.DCGAN,
         'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 512,
+        'n_epochs': 4096,
+        'latent_space_dim': 128,
         'n_samples': 256,
-        'lr': 2e-4
+        'lr': 1e-4
     }
 ]
 
-reset=True
+reset=False
 backup=True
 train = True
 evaluate = True
 one_fold_only = False
 one_class_only = False
+
+skip_folds = [0, 1]
 
 ml_utils.print_available_device()
 config.make_dirs()
@@ -45,6 +47,9 @@ config.make_dirs()
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
     for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
+
+        if i_fold in skip_folds:
+            continue
 
         if reset and train:
             ml_utils.prepare_train_dir(config.get_result_dir(i_fold, training_dict['dir']), backup=backup)
@@ -96,7 +101,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                     continue
 
                 trainer = ml_model.Serializable.load(trainer_file)
-                images = trainer.generate(n_samples=training_dict['n_samples'])
+                images = trainer.generate_images(n_samples=training_dict['n_samples'])
 
                 for index, image in enumerate(images):
                     image_file = os.path.join(output_dir, f'{index}.png')

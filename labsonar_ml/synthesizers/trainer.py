@@ -81,10 +81,10 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
                 self.error_list.append(list(error))
 
                 if export_progress_file is not None and self.n_epochs < video_target_size:
-                    training_images.append(self.generate(1)[0])
+                    training_images.append(self.generate_images(1)[0])
 
             if export_progress_file is not None and self.n_epochs >= video_target_size:
-                training_images.append(self.generate(1)[0])
+                training_images.append(self.generate_images(1)[0])
 
         if export_progress_file is not None:
             if len(training_images) > video_target_size:

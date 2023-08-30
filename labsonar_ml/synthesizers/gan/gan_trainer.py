@@ -116,27 +116,11 @@ class Gan_trainer(ml_train.Base_trainer):
 
         return np.array([d_real_error, d_fake_error, g_error])
 
-    @overrides
-    def generate(self, n_samples, transform = None):
+    @torch.no_grad()
+    def generate_samples(self, n_samples):
 
         if self.g_model is None:
             raise UnboundLocalError('Generating imagens for not fitted models')
-        
-        if transform is None:
-            transform = torchvision.transforms.Normalize(mean= -1, std= 2)
 
         self.g_model.eval()
-        generated_samples = self.g_model.generate(n_samples=n_samples, device=self.device)
-        generated_imgs = ml_utils.vectors_to_images(vectors = generated_samples, image_dim=self.image_dim)
-
-        desnorm_imgs = transform(generated_imgs)
-        desnorm_imgs = desnorm_imgs.cpu().detach()
-
-        images = []
-        for i in range(n_samples):
-            data = (desnorm_imgs[i].permute(1, 2, 0)).numpy()
-            data = data.reshape((data.shape[0], data.shape[1]))
-            data = (data * 255).astype(np.uint8)
-            images.append(PIL.Image.fromarray(data, mode='L'))
-
-        return images
+        return self.g_model.generate(n_samples=n_samples, device=self.device)
