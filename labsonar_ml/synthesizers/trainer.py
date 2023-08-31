@@ -69,17 +69,17 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         self.image_dim = list(image.shape)
 
         self.train_init(self.image_dim)
-
+        
         video_target_size = 15*30
 
         self.error_list = []
         training_images = []
         for _ in tqdm.tqdm(range(self.n_epochs), leave=False, desc="Epochs"):
 
-            for bacth, (samples, _) in enumerate(data_loader):
+            for batch, (samples, _) in enumerate(data_loader):
                 error = self.train_step(samples)
                 self.error_list.append(list(error))
-
+                
                 if export_progress_file is not None and self.n_epochs < video_target_size:
                     training_images.append(self.generate_images(1)[0])
 
