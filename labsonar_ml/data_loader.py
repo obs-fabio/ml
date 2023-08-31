@@ -2,8 +2,11 @@ import os
 import numpy as np
 from typing import Type, List, Dict, Tuple
 from PIL import Image
+import torch
 import torchvision
 import torch.utils.data as torch_data
+
+import labsonar_ml.data_loader as ml_data
 
 def read_image(image_file, transform = None) -> Image:
     image = Image.open(image_file).convert('RGB')
@@ -11,18 +14,16 @@ def read_image(image_file, transform = None) -> Image:
         image = transform(image)
     return image
 
+
 class Base_dataset (torch_data.Dataset):
 
     def __init__(self, samples: List[Tuple[str, str, str]], classes: List[str], runs: Dict[str, List[str]], transform):
         super().__init__()
         self._samples = samples
-        self._classes = classes
+        self._classes = sorted(classes)
         self._runs = runs
         self.transform = transform
         self.specialist_class = None
-
-    def set_specialist_class(self, class_id):
-        self.specialist_class = class_id
 
     def __len__(self):
         return len(self._samples)
@@ -30,7 +31,7 @@ class Base_dataset (torch_data.Dataset):
     def __getitem__(self, idx):
         image_path, class_id, _ = self._samples[idx]
         image = read_image(image_path, self.transform)
-        return image, class_id if self.specialist_class is None else float(class_id == self.specialist_class)
+        return image, self._classes.index(class_id)
 
     def get_classes(self):
         return self._classes.copy()
@@ -149,6 +150,20 @@ def init_four_classes_dataset(base_dir: str,
 
     return Dataset_manager(_samples, _classes, _runs, transform)
 
+def load_synthetic_dataset(dir: str, transform):
+
+    syn_dataset = torchvision.datasets.ImageFolder(dir, transform)
+
+    train_size = int(0.7 * len(syn_dataset))
+    val_size = int(0.15 * len(syn_dataset))
+    test_size = len(syn_dataset) - train_size - val_size
+
+    gen = torch.Generator().manual_seed(42)
+    syn_train_dataset, syn_val_dataset, syn_test_dataset = \
+            torch_data.random_split(syn_dataset, [train_size, val_size, test_size], generator=gen)
+    
+    return syn_train_dataset, syn_val_dataset, syn_test_dataset
+
 
 if __name__ == '__main__':
 
@@ -156,7 +171,7 @@ if __name__ == '__main__':
 
     custom_dataset = init_four_classes_dataset(base_dir)
 
-    lengths = []
+    fold_max_samples = []
 
     n_fold = len(custom_dataset.get_loro())
     for i_fold, (train, val, test) in enumerate(custom_dataset.get_loro()):
@@ -168,11 +183,14 @@ if __name__ == '__main__':
         val_loader = torch_data.DataLoader(val, batch_size=batch_size, shuffle=True)
         test_loader = torch_data.DataLoader(test, batch_size=batch_size, shuffle=True)
 
+        lengths = []
         print("\tTrain: ")
         for class_id in train.get_classes():
             print("\t\t", class_id,":", train.get_runs(class_id))
 
             lengths.append(len(train.get_files(class_id, None)))
+
+        fold_max_samples.append(np.max(lengths))
 
         print("\tValidação: ")
         for class_id in val.get_classes():
@@ -185,5 +203,5 @@ if __name__ == '__main__':
     for samples, classes in test_loader:
         print(classes)
 
-    print(lengths)
-    print(np.max(np.array(lengths)))
+    print(fold_max_samples)
+
