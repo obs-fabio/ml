@@ -26,7 +26,9 @@ class Gan_trainer(ml_train.Base_trainer):
                  loss_func = None,
                  lr: float = 2e-4,
                  n_epochs: int = 100,
-                 batch_size: int = 32):
+                 batch_size: int = 32,
+                 n_d=1,
+                 n_g=1):
         super().__init__(n_epochs, batch_size)
 
         self.type = type
@@ -35,6 +37,8 @@ class Gan_trainer(ml_train.Base_trainer):
         self.latent_space_dim = latent_space_dim
         self.device = ml_utils.get_available_device()
         self.image_dim = None
+        self.n_d = n_d
+        self.n_g = n_g
 
     def discriminator_step(self, real_data, fake_data) -> float:
         n_samples = real_data.size(0)
@@ -104,15 +108,20 @@ class Gan_trainer(ml_train.Base_trainer):
     def train_step(self, samples) -> np.ndarray:
         n_samples = samples.size(0)
 
-        if self.type == Type.GAN:
-            real_data = torch.autograd.variable.Variable(ml_utils.images_to_vectors(samples))
-        else:
-            real_data = samples
-        fake_data = self.g_model.generate(n_samples, self.device)
-        d_real_error, d_fake_error = self.discriminator_step(real_data, fake_data)
 
-        fake_data = self.g_model.generate(n_samples, self.device)
-        g_error = self.generator_step(fake_data)
+        for _ in range(self.n_d):
+
+            if self.type == Type.GAN:
+                real_data = torch.autograd.variable.Variable(ml_utils.images_to_vectors(samples))
+            else:
+                real_data = samples
+            fake_data = self.g_model.generate(n_samples, self.device)
+            d_real_error, d_fake_error = self.discriminator_step(real_data, fake_data)
+
+        for _ in range(self.n_g):
+
+            fake_data = self.g_model.generate(n_samples, self.device)
+            g_error = self.generator_step(fake_data)
 
         return np.array([d_real_error, d_fake_error, g_error])
 

@@ -29,7 +29,9 @@ class DCGAN(ml_model.Base):
         self.n_channels = n_channels
         self.feature_dim = feature_dim
 
-        num_layers = int(round(math.log2(feature_dim)-3)) # reduzir feature_dim/2 -> 4 - considerando seguidas divisões por 2
+        final_layer_size = 16
+
+        num_layers = int(round(math.log2(feature_dim)-math.log2(final_layer_size)-1)) # reduzir feature_dim/2 -> 4 - considerando seguidas divisões por 2
 
         # input is batch_size x (n_channels x feature_dim x feature_dim)  - batch x imagem
         layers = [
@@ -45,15 +47,49 @@ class DCGAN(ml_model.Base):
                 torch.nn.LeakyReLU(negative_slope, inplace=True)
             ])
 
-        # state size - (batch_size) x (4 x 4)
+        # state size - (batch_size) x (final_layer_size x final_layer_size)
         layers.extend([
             torch.nn.Conv2d(self.feature_dim * (2**num_layers), 1, 4, 1, 0, bias=False),
-            torch.nn.Sigmoid()
         ])
 
         # state size - (batch_size) x (1 x 1)
         self.model = torch.nn.Sequential(*layers)
 
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Flatten(1),
+            torch.nn.Linear((final_layer_size-3)**2, 1),
+            torch.nn.Sigmoid()
+        )
+
     def forward(self, x):
-        output = self.model(x)
-        return output.reshape(output.shape[0], output.shape[1])
+        return self.mlp(self.model(x))
+
+
+# class DCGAN(ml_model.Base):
+#     def __init__(self, n_channels: int, feature_dim: int, negative_slope: float = 0.2):
+#         super().__init__()
+#         self.n_channels = n_channels
+#         self.feature_dim = feature_dim
+
+#         def discriminator_block(in_filters, out_filters, bn=True):
+#             block = [torch.nn.Conv2d(in_filters, out_filters, 3, 2, 1), torch.nn.LeakyReLU(0.2, inplace=True), torch.nn.Dropout2d(0.25)]
+#             if bn:
+#                 block.append(torch.nn.BatchNorm2d(out_filters, 0.8))
+#             return block
+
+#         self.model = torch.nn.Sequential(
+#             *discriminator_block(n_channels, 16, bn=False),
+#             *discriminator_block(16, 32),
+#             *discriminator_block(32, 64),
+#             *discriminator_block(64, 128),
+#         )
+
+#         # The height and width of downsampled image
+#         ds_size = feature_dim // 2 ** 4
+#         self.adv_layer = torch.nn.Sequential(torch.nn.Linear(128 * ds_size ** 2, 1), torch.nn.Sigmoid())
+
+#     def forward(self, img):
+#         out = self.model(img)
+#         out = out.view(out.shape[0], -1)
+#         validity = self.adv_layer(out)
+#         return validity

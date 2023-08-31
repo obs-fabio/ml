@@ -8,6 +8,7 @@ import torch.utils.data as torch_data
 
 import labsonar_ml.data_loader as ml_data
 
+
 def get_available_device():
 	return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

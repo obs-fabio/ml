@@ -20,40 +20,43 @@ trainings_dict = [
     #     'latent_space_dim': 128,
     #     'n_samples': 256,
     #     'lr': 2e-4
+    #     'gen_cycles': 1
     # },
     {
         'type': ml_gan.Type.DCGAN,
         'dir': config.Training.DCGAN,
-        'batch_size': 32,
-        'n_epochs': 4096,
+        'batch_size': 16,
+        'n_epochs': 256,
         'latent_space_dim': 128,
         'n_samples': 256,
-        'lr': 1e-4
+        'lr': 1e-4,
+        'gen_cycles': 3
     }
 ]
 
-reset=False
-backup=True
+
+reset=True
+backup=False
 train = True
 evaluate = True
 one_fold_only = False
 one_class_only = False
 
-skip_folds = [0, 1]
+skip_folds = []
 
 ml_utils.print_available_device()
 config.make_dirs()
 
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
+    if reset and train:
+        ml_utils.prepare_train_dir(config.get_result_dir(0, training_dict['dir']), backup=backup)
+        config.make_dirs()
+
     for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
 
         if i_fold in skip_folds:
             continue
-
-        if reset and train:
-            ml_utils.prepare_train_dir(config.get_result_dir(i_fold, training_dict['dir']), backup=backup)
-            config.make_dirs()
 
         for class_id in train_dataset.get_classes():
 
@@ -77,7 +80,8 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                 trainer = ml_gan.Gan_trainer(type = training_dict['type'],
                                             latent_space_dim = training_dict['latent_space_dim'],
                                             n_epochs = training_dict['n_epochs'],
-                                            lr = training_dict['lr'])
+                                            lr = training_dict['lr'],
+                                            n_g = training_dict['gen_cycles'])
                 errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
 
                 trainer.save(trainer_file)
@@ -89,6 +93,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                 plt.plot(batchs, errors[:,2], label='Generator Error')
                 plt.xlabel('Batchs')
                 plt.ylabel('Error')
+                plt.yscale('log')
                 plt.title('Generator and Discriminator Errors per Epoch')
                 plt.legend()
                 plt.grid(True)
