@@ -19,14 +19,13 @@ source_synthetics = [config.Training.GAN]
 
 batch_size=32
 n_epochs=64
-lr=2e-4
+lr=1e-3
 
 reset=False
 backup=True
 train = True
 evaluate = True
 one_fold_only = True
-one_class_only = False
 
 skip_folds = []
 
@@ -52,44 +51,83 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
             source_model_dir = config.get_result_dir(i_fold, source_model, config.Artifacts.MODEL)
             classifier_dir = config.get_result_dir(i_fold, training, config.Artifacts.MODEL)
 
-            for id, class_id in enumerate(class_list):
+            if train:
+                for id, class_id in enumerate(class_list):
 
-                classifier_file = os.path.join(classifier_dir, f'{class_id}_model.plk')
-                classifier_loss = os.path.join(classifier_dir, f'{class_id}_loss_history.png')
-                if os.path.exists(classifier_file):
+                    classifier_file = os.path.join(classifier_dir, f'{class_id}_model.plk')
+                    classifier_loss = os.path.join(classifier_dir, f'{class_id}_loss_history.png')
+                    if os.path.exists(classifier_file):
+                        continue
+
+                    trainer_file = os.path.join(source_model_dir, f'{class_id}_model.plk')
+                    trainer = ml_model.Serializable.load(trainer_file)
+                    classifier = trainer.d_model
+
+                    errors = ml_model.fit_specialist_classifier(
+                            model=classifier,
+                            dataset=train_dataset,
+                            class_id=id,
+                            batch_size=batch_size,
+                            n_epochs=n_epochs,
+                            lr=lr,
+                            linearize_data=True
+                        )
+
+                    classifier.save(classifier_file)
+
+                    batchs = range(1, errors.shape[0] + 1)
+                    plt.figure(figsize=(10, 6))
+                    plt.plot(batchs, errors, label='Error')
+                    plt.xlabel('Batchs')
+                    plt.ylabel('Error')
+                    plt.yscale('log')
+                    plt.title(f'Classifier {class_id} from real data')
+                    plt.legend()
+                    plt.grid(True)
+                    plt.savefig(classifier_loss)
+                    plt.close()
+
+
+            if evaluate:
+
+                classifier_output_dir = config.get_result_dir(i_fold, training, config.Artifacts.OUTPUT)
+                classifier_result_train = os.path.join(classifier_output_dir, 'train.csv')
+                classifier_result_val = os.path.join(classifier_output_dir, 'val.csv')
+                classifier_result_test = os.path.join(classifier_output_dir, 'test.csv')
+
+                if os.path.exists(classifier_result_train) and \
+                    os.path.exists(classifier_result_val) and \
+                    os.path.exists(classifier_result_test):
                     continue
 
-                trainer_file = os.path.join(source_model_dir, f'{class_id}_model.plk')
-                trainer = ml_model.Serializable.load(trainer_file)
-                classifier = trainer.d_model
+                classifiers = []
+                for class_id in class_list:
+                    classifier_file = os.path.join(classifier_dir, f'{class_id}_model.plk')
+                    classifiers.append(ml_model.Serializable.load(classifier_file))
 
-                errors = ml_model.fit_specialist_classifier(
-                        model=classifier,
+                df_train = ml_model.eval_specialist_classifiers(
+                        classes = class_list,
+                        classifiers = classifiers,
                         dataset=train_dataset,
-                        class_id=id,
-                        batch_size=batch_size,
-                        n_epochs=n_epochs,
-                        lr=lr,
+                        linearize_data=True
+                    )
+                df_val = ml_model.eval_specialist_classifiers(
+                        classes = class_list,
+                        classifiers = classifiers,
+                        dataset=val_dataset,
+                        linearize_data=True
+                    )
+                df_test = ml_model.eval_specialist_classifiers(
+                        classes = class_list,
+                        classifiers = classifiers,
+                        dataset=test_dataset,
                         linearize_data=True
                     )
 
-                classifier.save(classifier_file)
-
-                batchs = range(1, errors.shape[0] + 1)
-                plt.figure(figsize=(10, 6))
-                plt.plot(batchs, errors, label='Error')
-                plt.xlabel('Batchs')
-                plt.ylabel('Error')
-                plt.yscale('log')
-                plt.title(f'Classifier {class_id} from real data')
-                plt.legend()
-                plt.grid(True)
-                plt.savefig(classifier_loss)
-                plt.close()
-
-                if one_class_only:
-                    break
-
+                df_train.to_csv(classifier_result_train, index=False)
+                df_val.to_csv(classifier_result_val, index=False)
+                df_test.to_csv(classifier_result_test, index=False)
+                
         if training == config.Training.CLASSIFIER_MLP_SYNTHETIC:
 
             source_model_dir = config.get_result_dir(i_fold, source_model, config.Artifacts.MODEL)
@@ -97,12 +135,12 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
             
             for source_synthetic in source_synthetics:
 
-                for class_id in train_dataset.get_classes():
+                if train:
+                    for class_id in class_list:
 
-                    classifier_file = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_model.plk')
-                    classifier_loss = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_loss_history.png')
+                        classifier_file = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_model.plk')
+                        classifier_loss = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_loss_history.png')
 
-                    if train:
                         if os.path.exists(classifier_file):
                             continue
 
@@ -155,13 +193,31 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                         classifier_file = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_model.plk')
                         classifiers.append(ml_model.Serializable.load(classifier_file))
 
-                    df_train, df_val, df_test = ml_model.eval_specialist_classifiers(
-                        classes = class_list,
-                        classifiers = classifiers,
+                    syn_train_dataset, syn_val_dataset, syn_test_dataset = ml_data.load_synthetic_dataset(
                         dir = config.get_result_dir(i_fold, source_synthetic, config.Artifacts.OUTPUT),
-                        transform = train_dataset.transform,
-                        linearize_data=True
-                    )
+                        transform = train_dataset.transform)
+
+                    df_train = ml_model.eval_specialist_classifiers(
+                            classes = class_list,
+                            classifiers = classifiers,
+                            dataset=syn_train_dataset,
+                            transform = train_dataset.transform,
+                            linearize_data=True
+                        )
+                    df_val = ml_model.eval_specialist_classifiers(
+                            classes = class_list,
+                            classifiers = classifiers,
+                            dataset=syn_val_dataset,
+                            transform = train_dataset.transform,
+                            linearize_data=True
+                        )
+                    df_test = ml_model.eval_specialist_classifiers(
+                            classes = class_list,
+                            classifiers = classifiers,
+                            dataset=syn_test_dataset,
+                            transform = train_dataset.transform,
+                            linearize_data=True
+                        )
 
                     df_train.to_csv(classifier_result_train, index=False)
                     df_val.to_csv(classifier_result_val, index=False)

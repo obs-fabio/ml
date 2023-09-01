@@ -6,6 +6,7 @@ import labsonar_ml.model.base_model as ml_model
 class GAN(ml_model.Base):
     def __init__(self, feature_dim, internal_dim=256, dropout=0.2):
         super().__init__()
+        self.internal_dim = internal_dim
 
         self.model = torch.nn.Sequential(
             torch.nn.Linear(feature_dim, internal_dim * 2),
@@ -14,12 +15,18 @@ class GAN(ml_model.Base):
             torch.nn.Linear(internal_dim * 2, internal_dim),
             torch.nn.LeakyReLU(),
             torch.nn.Dropout(dropout),
-            torch.nn.Linear(internal_dim, 1),
+        )
+        self.reset_output_layer()
+
+    def reset_output_layer(self):
+        self.activation = torch.nn.Sequential(
+            torch.nn.Linear(self.internal_dim, 1),
             torch.nn.Sigmoid(),
         )
 
     def forward(self, x):
         output = self.model(x)
+        output = self.activation(output)
         return output
 
 

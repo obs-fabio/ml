@@ -85,25 +85,11 @@ def eval_specialist_classifier(model, dataset, class_id, linearize_data):
     return real.reshape(real.shape[0],), predict.reshape(predict.shape[0],)
 
 @torch.no_grad()
-def eval_specialist_classifiers(classes: typing.List[str], classifiers, dir: str, transform, linearize_data, datasets = None) -> pd.DataFrame:
-
-    if datasets is None:
-        return eval_specialist_classifiers(classes, classifiers, dir, transform, linearize_data, "train"), \
-                eval_specialist_classifiers(classes, classifiers, dir, transform, linearize_data, "val"), \
-                eval_specialist_classifiers(classes, classifiers, dir, transform, linearize_data, "test")
+def eval_specialist_classifiers(classes: typing.List[str], classifiers, dataset, linearize_data, datasets = None) -> pd.DataFrame:
 
     reals = []
     predicts = []
     for id, class_id in enumerate(classes):
-
-        syn_train_dataset, syn_val_dataset, syn_test_dataset = ml_data.load_synthetic_dataset(dir, transform)
-
-        if datasets == "train":
-            dataset = syn_train_dataset
-        elif datasets == "val":
-            dataset = syn_val_dataset
-        else:
-            dataset = syn_test_dataset
 
         real, predict = eval_specialist_classifier(
             model=classifiers[id],
