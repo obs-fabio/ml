@@ -2,6 +2,7 @@ import typing
 import numpy as np
 import PIL
 import enum
+import tqdm
 from overrides import overrides
 
 import torch
@@ -67,9 +68,10 @@ class DiffusionModel(ml_trainer.Base_trainer):
         self.image_dim = image_dim
         # self.model = ml_unet.UNet(image_channels=image_dim[0], n_channels=image_dim[0]**2).to(self.device)
         self.model = ml_unet.ContextUnet(in_channels = 1,
-                                 n_feat = 28 ** 2,
+                                 n_feat = 64,
                                  n_cfeat = 1,
-                                 height = 28).to(self.device)
+                                 height = image_dim[1],
+                                 batch_size = self.batch_size).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr = self.lr)
 
     @overrides
@@ -101,7 +103,7 @@ class DiffusionModel(ml_trainer.Base_trainer):
 
         step_size = self.timesteps // self.ddpi_steps_factor if self.sampling_strategy == Sampling_strategy.DDPI else 1
 
-        for timestep in range(self.timesteps, 0, -step_size):
+        for timestep in tqdm.tqdm(range(self.timesteps, 0, -step_size), leave = False):
 
             normalized_timestep = torch.tensor([timestep / self.timesteps])[:, None, None, None].to(self.device)
 

@@ -52,7 +52,7 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         desnorm_imgs = desnorm_imgs.cpu().detach()
 
         images = []
-        for i in range(n_samples):
+        for i in tqdm.tqdm(range(n_samples), leave=False):
             data = (desnorm_imgs[i].permute(1, 2, 0)).numpy()
             data = data.reshape((data.shape[0], data.shape[1]))
             data = (data * 255).astype(np.uint8)

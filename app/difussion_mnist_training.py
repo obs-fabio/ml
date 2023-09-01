@@ -17,8 +17,8 @@ n_samples=100
 lr = 1e-3
 reset=False
 backup_old = True
-train = False
-evaluate = True
+train = True
+evaluate = False
 
 
 output_dir = os.path.join(base_dir, output_dir)

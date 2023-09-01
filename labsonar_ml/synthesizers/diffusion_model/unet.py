@@ -16,14 +16,14 @@ class ResidualConvBlock(nn.Module):
 
         # Primeira camada convolucional
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, 1, 1),   # 3x3 kernel | stride 1 | padding 1
+            nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = 1, padding = 1),   # 3x3 kernel | stride 1 | padding 1
             nn.BatchNorm2d(out_channels),   # Batch normalization
             nn.GELU(),   # Função de ativação: GELU 
         )
 
         # Segunda camada convolucional
         self.conv2 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, 3, 1, 1),   # 3x3 kernel | stride 1 | padding 1
+            nn.Conv2d(out_channels, out_channels, kernel_size = 3, stride = 1, padding = 1),   # 3x3 kernel | stride 1 | padding 1
             nn.BatchNorm2d(out_channels),   # Batch normalization
             nn.GELU(),   # Função de ativação: GELU
         )
@@ -82,7 +82,7 @@ class UnetUp(nn.Module):
         # Cria uma lista de camadas para o bloco de upsampling
         # O bloco consiste de uma camada ConvTranspose2d para upsampling, seguida de duas camadas ResidualConvBlock
         layers = [
-            nn.ConvTranspose2d(in_channels, out_channels, 2, 2),
+            nn.ConvTranspose2d(in_channels, out_channels, kernel_size = 2, stride = 2),
             ResidualConvBlock(out_channels, out_channels),
             ResidualConvBlock(out_channels, out_channels),
         ]
@@ -95,6 +95,7 @@ class UnetUp(nn.Module):
         x = torch.cat((x, skip), 1)
         
         # Passa o tensor concatenado através do modelo e retorna o output.
+        # print(f"forward = {x.size()}")
         x = self.model(x)
         return x
 
@@ -146,7 +147,8 @@ class ContextUnet(nn.Module):
                  in_channels, 
                  n_feat=256, 
                  n_cfeat=10, # cfeat = features de contexto
-                 height=28):  
+                 height=28,
+                 batch_size=32):  
         super(ContextUnet, self).__init__()
 
         # number of input channels, number of intermediate feature maps and number of classes
@@ -155,36 +157,36 @@ class ContextUnet(nn.Module):
         self.n_feat = n_feat            # Número de feature maps intermediários
         self.n_cfeat = n_cfeat          # Número de classes
         self.h = height                 # Assume-se h == w. Deve ser divisível por 4, então 28, 24, 20, 16... # TODO Por quê?
-
+        self.batch_size = batch_size
         # Inicializando a camada convolucional inicial
         self.init_conv = ResidualConvBlock(in_channels, n_feat, is_res=True)
 
         # Inicializando o caminho downsampling da rede UNet com dois níveis
-        self.down1 = UnetDown(n_feat, n_feat)        # down1: [10, 256, 8, 8]
-        self.down2 = UnetDown(n_feat, 2 * n_feat)    # down2: [10, 256, 4,  4]
+        self.down1 = UnetDown(n_feat, 2 * n_feat)        # down1: [10, 256, 8, 8]
+        self.down2 = UnetDown(2 * n_feat, 4 * n_feat)    # down2: [10, 256, 4,  4]
 
         # Backup [original]: self.to_vec = nn.Sequential(nn.AvgPool2d(7), nn.GELU())
-        self.to_vec = nn.Sequential(nn.AvgPool2d((4)), nn.GELU())
+        self.to_vec = nn.Sequential(nn.AvgPool2d((2)), nn.GELU())
 
         # Embedding do timestep e labels de contexto com uma camada totalmente conectada da rede neural
-        self.timeembed1 = EmbedFC(1, 2 * n_feat)
-        self.timeembed2 = EmbedFC(1, 1 * n_feat)
-        self.contextembed1 = EmbedFC(n_cfeat, 2 * n_feat)
-        self.contextembed2 = EmbedFC(n_cfeat, 1 * n_feat)
+        # self.timeembed1 = EmbedFC(1, n_feat)
+        # self.timeembed2 = EmbedFC(1, n_feat)
+        # self.contextembed1 = EmbedFC(n_cfeat, n_feat)
+        # self.contextembed2 = EmbedFC(n_cfeat, n_feat)
 
         # Inicializando o caminho de upsampling da rede UNet com três níveis
         self.up0 = nn.Sequential(
-            nn.ConvTranspose2d(2 * n_feat, 2 * n_feat, self.h//4, self.h//4), # upsampling  
-            nn.GroupNorm(8, 2 * n_feat), # normalização                       
+            nn.ConvTranspose2d(4 * n_feat, 4 * n_feat, kernel_size = 2, stride = 2),#(self.batch_size, 4 * n_feat, self.n_feat//4, self.n_feat//4), # upsampling  
+            nn.GroupNorm(8, 4 * n_feat), # normalização                       
             nn.ReLU(),
         )
-        self.up1 = UnetUp(4 * n_feat, n_feat)
-        self.up2 = UnetUp(2 * n_feat, n_feat)
+        self.up1 = UnetUp(n_feat * 8, n_feat * 4)
+        self.up2 = UnetUp(n_feat * 6, n_feat)
 
         # Inicializando as últimas camadas convolucionais para mapear o mesmo número de canais da imagem de entrada
         self.out = nn.Sequential(   
             # Reduzir o número de feature maps
-            nn.Conv2d(2 * n_feat, n_feat, 3, 1, 1), # in_channels, out_channels, kernel_size, stride:1, padding:0 
+            nn.Conv2d(n_feat * 2, n_feat, 3, 1, 1), # in_channels, out_channels, kernel_size, stride:1, padding:0 
             nn.GroupNorm(8, n_feat), # normalização
             nn.ReLU(),
             nn.Conv2d(n_feat, self.in_channels, 3, 1, 1), # map para o mesmo número de canais como entrada
@@ -197,33 +199,46 @@ class ContextUnet(nn.Module):
         c : (batch, n_classes)    : label de contexto
         """
 
+        # print(f"initial={x.size()}")
         # Passando a imagem de entrada através da camada convolucional inicial
         x = self.init_conv(x)
 
         # Passando o resultada para o caminho de downsampling
-        down1 = self.down1(x)       # [10, 256, 8, 8]
-        down2 = self.down2(down1)   # [10, 256, 4, 4]
-
+        down1 = self.down1(x)
+        down2 = self.down2(down1)
+        
+        
+        # print(f"init_conv={x.size()}")
+        # print(f"down1={down1.size()}")
+        # print(f"down2={down2.size()}")
 
         # Convertendo os feature maps para um vetor e aplicando uma ativação
+        
         hiddenvec = self.to_vec(down2)
+        # print(f"hiddenvec={hiddenvec.size()}")
         
         # mascarar o contexto se context_mask == 1
         if c is None:
             c = torch.zeros(x.shape[0], self.n_cfeat).to(x)
-            
+        
         # Embedding o contexto e timestep
-        cemb1 = self.contextembed1(c).view(-1, self.n_feat * 2, 1, 1)   # (batch, 2 * n_feat, 1, 1)
-        temb1 = self.timeembed1(t).view(-1, self.n_feat * 2, 1, 1)
-        cemb2 = self.contextembed2(c).view(-1, self.n_feat, 1, 1)
-        temb2 = self.timeembed2(t).view(-1, self.n_feat, 1, 1)
+        # cemb1 = self.contextembed1(c).view(-1, self.n_feat, 1, 1)   # (batch, 2 * n_feat, 1, 1)
+        # temb1 = self.timeembed1(t).view(-1, self.n_feat, 1, 1)
+        # cemb2 = self.contextembed2(c).view(-1, self.n_feat, 1, 1)
+        # temb2 = self.timeembed2(t).view(-1, self.n_feat, 1, 1)
         ## print(f"uunet forward: cemb1 {cemb1.shape}. temb1 {temb1.shape}, cemb2 {cemb2.shape}. temb2 {temb2.shape}")
 
         
         up1 = self.up0(hiddenvec)
+        # print(f"up0={up1.size()}")
+
         # Adicionando e multiplicando múltiplos embeddings
-        up2 = self.up1(cemb1 * up1 + temb1, down2)
-        up3 = self.up2(cemb2 * up2 + temb2, down1)
-        out = self.out(torch.cat((up3, x), 1))
-        
+        up2 = self.up1(up1, down2) # up2 = self.up1(cemb1 * up1 + temb1, down2)
+        # print(f"up1={up2.size()}")
+        up3 = self.up2(up2, down1) # up3 = self.up2(cemb2 * up2 + temb2, down1)
+        # print(f"up2={up3.size()}")
+        x = torch.cat((up3, x), 1)
+        # print(f"forward = {x.size()}")
+        out = self.out(x)
+        # print(f"out={out.size()}")
         return out
