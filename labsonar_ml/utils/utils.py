@@ -70,7 +70,6 @@ def prepare_train_dir(basepath: str, backup=True):
 
 def get_mnist_dataset_as_specialist(datapath: str = "data/", specialist_class_number: int = 1):
 	transform = torchvision.transforms.Compose([
-									torchvision.transforms.Resize(32, antialias=True),
 									torchvision.transforms.ToTensor(),
 									torchvision.transforms.Normalize((0.5,), (0.5,))])
 	

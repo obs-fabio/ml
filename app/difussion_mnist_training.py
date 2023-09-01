@@ -7,17 +7,17 @@ import labsonar_ml.utils.utils as ml_utils
 
 types = [ml_diff.Sampling_strategy.DDPI, ml_diff.Sampling_strategy.DDPM]
 
-data_dir = '/home/data/'
-base_dir = '/home/libs/ml/test_results/difussion'
+data_dir = './data/'
+base_dir = './test_results/difussion'
 output_dir = 'output'
 training_dir = 'training'
-batch_size = 32
+batch_size = 16
 n_epochs=25
 n_samples=100
-lr = 2e-4
-reset=True
+lr = 1e-3
+reset=False
 backup_old = True
-train = True
+train = False
 evaluate = True
 
 
@@ -32,8 +32,7 @@ if train:
         os.makedirs(base_dir, exist_ok=True)
     os.makedirs(training_dir, exist_ok=True)
 
-    for class_id in tqdm.tqdm(range(10), desc="Class"):
-
+    for class_id in tqdm.tqdm(range(1), desc="Class"):
         trainer_file = os.path.join(training_dir, 'trainer_{:d}.plk'.format(class_id))
         training_history_file = os.path.join(training_dir, 'training_history_{:d}.png'.format(class_id))
 
@@ -42,11 +41,12 @@ if train:
             continue
 
         train = ml_utils.get_mnist_dataset_as_specialist(datapath = data_dir, specialist_class_number = class_id)
-
+        
         trainer = ml_diff.DiffusionModel(batch_size=batch_size,
                                          n_epochs = n_epochs,
                                          lr = lr)
-        errors = trainer.fit(data = train, export_progress_file=os.path.join(training_dir, "training_history_{:d}.gif".format(class_id)))
+        
+        errors = trainer.fit(data = train)#, export_progress_file=os.path.join(training_dir, "training_history_{:d}.gif".format(class_id)))
 
         trainer.save(trainer_file)
         epochs = range(1, errors.shape[0] + 1)
@@ -65,7 +65,7 @@ if evaluate:
 
     os.makedirs(output_dir, exist_ok=True)
 
-    for class_id in tqdm.tqdm(range(10), desc="Class"):
+    for class_id in tqdm.tqdm(range(1), desc="Class"):
 
         trainer_file = os.path.join(training_dir, 'trainer_{:d}.plk'.format(class_id))
         
@@ -81,4 +81,3 @@ if evaluate:
         for index, image in enumerate(images):
             image_file = os.path.join(class_output_dir, '{:d}.png'.format(index))
             image.save(image_file)
-

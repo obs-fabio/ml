@@ -1,5 +1,6 @@
 import typing
 import numpy as np
+import PIL
 import enum
 from overrides import overrides
 
@@ -20,14 +21,13 @@ class Sampling_strategy(enum.Enum):
 class DiffusionModel(ml_trainer.Base_trainer):
 
     def __init__(self,
-                 betas = torch.linspace(1e-4, 2e-2, 501, device=ml_utils.get_available_device()),
                  n_epochs: int = 32,
                  batch_size: int = 32,
                  lr: int = 1e-3):
         super().__init__(n_epochs = n_epochs, batch_size = batch_size)
 
-        self.betas = betas
-        self.timesteps = len(betas) - 1
+        self.betas = (1e-4 - 2e-2) * torch.linspace(0, 1, 501, device=ml_utils.get_available_device()) + 2e-2
+        self.timesteps = len(self.betas) - 1
         self.lr = lr
 
         self.alphas = 1 - self.betas
@@ -67,22 +67,21 @@ class DiffusionModel(ml_trainer.Base_trainer):
         self.image_dim = image_dim
         # self.model = ml_unet.UNet(image_channels=image_dim[0], n_channels=image_dim[0]**2).to(self.device)
         self.model = ml_unet.ContextUnet(in_channels = 1,
-                                 n_feat = 5 * (28 **2),
+                                 n_feat = 28 ** 2,
                                  n_cfeat = 1,
                                  height = 28).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr = self.lr)
-
 
     @overrides
     def train_step(self, samples) -> np.ndarray:
         self.optimizer.zero_grad()
 
         samples = samples.to(self.device)
-
+        
         noised_samples, timesteps, noise = self.add_step_noise(samples)
         timesteps = timesteps / self.timesteps
-
         timesteps = timesteps.to(self.device)
+        
         predicted_noise = self.model(noised_samples, timesteps)
 
         loss = torch.nn.functional.mse_loss(predicted_noise, noise)
@@ -118,5 +117,3 @@ class DiffusionModel(ml_trainer.Base_trainer):
                 raise UnboundLocalError("Sampling strategy not implemented")
 
         return samples
-
-
