@@ -12,31 +12,31 @@ import labsonar_ml.data_loader as ml_data
 import app.config as config
 
 trainings_dict = [
-    # {
-    #     'type': ml_gan.Type.GAN,
-    #     'dir': config.Training.GAN,
-    #     'batch_size': 32,
-    #     'n_epochs': 2048,
-    #     'latent_space_dim': 128,
-    #     'n_samples': 256,
-    #     'lr': 2e-4
-    #     'gen_cycles': 1
-    # },
     {
-        'type': ml_gan.Type.DCGAN,
-        'dir': config.Training.DCGAN,
-        'batch_size': 16,
-        'n_epochs': 256,
+        'type': ml_gan.Type.GAN,
+        'dir': config.Training.GAN,
+        'batch_size': 32,
+        'n_epochs': 2048,
         'latent_space_dim': 128,
         'n_samples': 256,
-        'lr': 1e-4,
-        'gen_cycles': 3
-    }
+        'lr': 2e-4,
+        'gen_cycles': 1
+    },
+    # {
+    #     'type': ml_gan.Type.DCGAN,
+    #     'dir': config.Training.DCGAN,
+    #     'batch_size': 16,
+    #     'n_epochs': 256,
+    #     'latent_space_dim': 128,
+    #     'n_samples': 256,
+    #     'lr': 1e-4,
+    #     'gen_cycles': 3
+    # }
 ]
 
 
-reset=True
-backup=False
+reset=False
+backup=True
 train = True
 evaluate = True
 one_fold_only = False
@@ -49,14 +49,14 @@ config.make_dirs()
 
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
+    if reset and train:
+        ml_utils.prepare_train_dir(config.get_result_dir(0, training_dict['dir']), backup=backup)
+        config.make_dirs()
+        
     for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
 
         if i_fold in skip_folds:
             continue
-
-        if reset and train:
-            ml_utils.prepare_train_dir(config.get_result_dir(i_fold, training_dict['dir']), backup=backup)
-            config.make_dirs()
 
         for class_id in train_dataset.get_classes():
 

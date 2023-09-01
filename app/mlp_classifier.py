@@ -35,16 +35,17 @@ config.set_seed()
 
 class_list = ['A','B','C','D']
 
+for training in trainings:
+    if reset and train:
+        ml_utils.prepare_train_dir(config.get_result_dir(0, training), backup=backup)
+        config.make_dirs()
+
 for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc="Folds", leave=False):
 
     if i_fold in skip_folds:
         continue
 
     for training in trainings:
-
-        if reset and train:
-            ml_utils.prepare_train_dir(config.get_result_dir(i_fold, training), backup=backup)
-            config.make_dirs()
 
         if training == config.Training.CLASSIFIER_MLP_REAL:
 

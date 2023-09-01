@@ -7,14 +7,14 @@ import labsonar_ml.utils.visualization as ml_vis
 import app.config as config
 
 trainings_dict = [
-    # {
-    #     'type': ml_gan.Type.GAN,
-    #     'dir': config.Training.GAN,
-    # },
     {
-        'type': ml_gan.Type.DCGAN,
-        'dir': config.Training.DCGAN,
-    }
+        'type': ml_gan.Type.GAN,
+        'dir': config.Training.GAN,
+    },
+    # {
+    #     'type': ml_gan.Type.DCGAN,
+    #     'dir': config.Training.DCGAN,
+    # }
 ]
 
 reset=True
@@ -61,6 +61,6 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
             continue
 
         ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_tse.png".format()))
-        ml_vis.export_pca(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_pca.png".format()))
+        # ml_vis.export_pca(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_pca.png".format()))
 
     # ml_vis.export_tsne(all_data, all_labels, filename=os.path.join(base_input_dir, "gans_tse.png"))
