@@ -12,25 +12,28 @@ import labsonar_ml.data_loader as ml_data
 import app.config as config
 
 trainings_dict = [
-    {
-        'type': ml_gan.Type.GAN,
-        'dir': config.Training.GAN,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4
-    },
     # {
-    #     'type': ml_gan.Type.DCGAN,
-    #     'dir': config.Training.DCGAN,
+    #     'type': ml_gan.Type.GAN,
+    #     'dir': config.Training.GAN,
     #     'batch_size': 32,
-    #     'n_epochs': 4096,
+    #     'n_epochs': 2048,
     #     'latent_space_dim': 128,
     #     'n_samples': 256,
-    #     'lr': 1e-4
-    # }
+    #     'lr': 2e-4
+    #     'gen_cycles': 1
+    # },
+    {
+        'type': ml_gan.Type.DCGAN,
+        'dir': config.Training.DCGAN,
+        'batch_size': 16,
+        'n_epochs': 256,
+        'latent_space_dim': 128,
+        'n_samples': 256,
+        'lr': 1e-4,
+        'gen_cycles': 3
+    }
 ]
+
 
 reset=True
 backup=False
@@ -77,7 +80,8 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                 trainer = ml_gan.Gan_trainer(type = training_dict['type'],
                                             latent_space_dim = training_dict['latent_space_dim'],
                                             n_epochs = training_dict['n_epochs'],
-                                            lr = training_dict['lr'])
+                                            lr = training_dict['lr'],
+                                            n_g = training_dict['gen_cycles'])
                 errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
 
                 trainer.save(trainer_file)
@@ -89,6 +93,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                 plt.plot(batchs, errors[:,2], label='Generator Error')
                 plt.xlabel('Batchs')
                 plt.ylabel('Error')
+                plt.yscale('log')
                 plt.title('Generator and Discriminator Errors per Epoch')
                 plt.legend()
                 plt.grid(True)
