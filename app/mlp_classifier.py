@@ -1,6 +1,8 @@
 import os, tqdm
+import itertools
 import numpy as np
 import pandas as pd
+import sklearn.metrics as sklearn
 import torch
 import torch.utils.data as torch_data
 import torchvision
@@ -14,7 +16,8 @@ import app.config as config
 
 
 source_model = config.Training.GAN
-trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP_SYNTHETIC, config.Training.CLASSIFIER_MLP_JOINT]
+# trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP_SYNTHETIC, config.Training.CLASSIFIER_MLP_JOINT]
+trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP_SYNTHETIC]
 source_synthetics = [config.Training.GAN]
 
 batch_size=32
@@ -25,7 +28,8 @@ reset=False
 backup=True
 train = True
 evaluate = True
-one_fold_only = True
+compare = True
+one_fold_only = False
 
 skip_folds = []
 
@@ -35,16 +39,17 @@ config.set_seed()
 
 class_list = ['A','B','C','D']
 
+for training in trainings:
+    if reset and train:
+        ml_utils.prepare_train_dir(config.get_result_dir(0, training), backup=backup)
+        config.make_dirs()
+
 for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc="Folds", leave=False):
 
     if i_fold in skip_folds:
         continue
 
     for training in trainings:
-
-        if reset and train:
-            ml_utils.prepare_train_dir(config.get_result_dir(i_fold, training), backup=backup)
-            config.make_dirs()
 
         if training == config.Training.CLASSIFIER_MLP_REAL:
 
@@ -62,6 +67,7 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                     trainer_file = os.path.join(source_model_dir, f'{class_id}_model.plk')
                     trainer = ml_model.Serializable.load(trainer_file)
                     classifier = trainer.d_model
+                    classifier.reset_output_layer()
 
                     errors = ml_model.fit_specialist_classifier(
                             model=classifier,
@@ -87,13 +93,12 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                     plt.savefig(classifier_loss)
                     plt.close()
 
-
             if evaluate:
 
                 classifier_output_dir = config.get_result_dir(i_fold, training, config.Artifacts.OUTPUT)
-                classifier_result_train = os.path.join(classifier_output_dir, 'train.csv')
-                classifier_result_val = os.path.join(classifier_output_dir, 'val.csv')
-                classifier_result_test = os.path.join(classifier_output_dir, 'test.csv')
+                classifier_result_train = os.path.join(classifier_output_dir, f'model({training})_eval({training})_train.csv')
+                classifier_result_val = os.path.join(classifier_output_dir, f'model({training})_eval({training})_val.csv')
+                classifier_result_test = os.path.join(classifier_output_dir, f'model({training})_eval({training})_test.csv')
 
                 if os.path.exists(classifier_result_train) and \
                     os.path.exists(classifier_result_val) and \
@@ -127,6 +132,46 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                 df_train.to_csv(classifier_result_train, index=False)
                 df_val.to_csv(classifier_result_val, index=False)
                 df_test.to_csv(classifier_result_test, index=False)
+
+                for source_synthetic in source_synthetics:
+
+                    classifier_result_train = os.path.join(classifier_output_dir, f'model({training})_eval({str(source_synthetic)})_train.csv')
+                    classifier_result_val = os.path.join(classifier_output_dir, f'model({training})_eval({str(source_synthetic)})_val.csv')
+                    classifier_result_test = os.path.join(classifier_output_dir, f'model({training})_eval({str(source_synthetic)})_test.csv')
+
+                    if os.path.exists(classifier_result_train) and \
+                        os.path.exists(classifier_result_val) and \
+                        os.path.exists(classifier_result_test):
+                        continue
+
+                    syn_train_dataset, syn_val_dataset, syn_test_dataset = ml_data.load_synthetic_dataset(
+                            dir = config.get_result_dir(i_fold, source_synthetic, config.Artifacts.OUTPUT),
+                            transform = train_dataset.transform
+                        )
+
+                    df_train = ml_model.eval_specialist_classifiers(
+                            classes = class_list,
+                            classifiers = classifiers,
+                            dataset=syn_train_dataset,
+                            linearize_data=True
+                        )
+                    df_val = ml_model.eval_specialist_classifiers(
+                            classes = class_list,
+                            classifiers = classifiers,
+                            dataset=syn_val_dataset,
+                            linearize_data=True
+                        )
+                    df_test = ml_model.eval_specialist_classifiers(
+                            classes = class_list,
+                            classifiers = classifiers,
+                            dataset=syn_test_dataset,
+                            linearize_data=True
+                        )
+
+                    df_train.to_csv(classifier_result_train, index=False)
+                    df_val.to_csv(classifier_result_val, index=False)
+                    df_test.to_csv(classifier_result_test, index=False)
+
                 
         if training == config.Training.CLASSIFIER_MLP_SYNTHETIC:
 
@@ -138,8 +183,8 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                 if train:
                     for class_id in class_list:
 
-                        classifier_file = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_model.plk')
-                        classifier_loss = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_loss_history.png')
+                        classifier_file = os.path.join(classifier_dir, f'{class_id}_{str(source_synthetic)}_model.plk')
+                        classifier_loss = os.path.join(classifier_dir, f'{class_id}_{str(source_synthetic)}_loss_history.png')
 
                         if os.path.exists(classifier_file):
                             continue
@@ -147,7 +192,6 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                         syn_train_dataset, syn_val_dataset, syn_test_dataset = ml_data.load_synthetic_dataset(
                                 config.get_result_dir(i_fold, source_synthetic, config.Artifacts.OUTPUT),
                                 train_dataset.transform)
-
 
                         trainer_file = os.path.join(source_model_dir, f'{class_id}_model.plk')
                         trainer = ml_model.Serializable.load(trainer_file)
@@ -168,6 +212,7 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                         plt.plot(batchs, errors, label='Error')
                         plt.xlabel('Batchs')
                         plt.ylabel('Error')
+                        plt.yscale('log')
                         plt.title(f'Classifier {class_id} from real data')
                         plt.legend()
                         plt.grid(True)
@@ -179,110 +224,144 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                 if evaluate:
 
                     classifier_output_dir = config.get_result_dir(i_fold, training, config.Artifacts.OUTPUT)
-                    classifier_result_train = os.path.join(classifier_output_dir, f'{source_synthetic.name.lower()}_train.csv')
-                    classifier_result_val = os.path.join(classifier_output_dir, f'{source_synthetic.name.lower()}_val.csv')
-                    classifier_result_test = os.path.join(classifier_output_dir, f'{source_synthetic.name.lower()}_test.csv')
+                    classifier_result_train = os.path.join(classifier_output_dir, f'model({str(source_synthetic)})_eval(real)_train.csv')
+                    classifier_result_val = os.path.join(classifier_output_dir, f'model({str(source_synthetic)})_eval(real)_val.csv')
+                    classifier_result_test = os.path.join(classifier_output_dir, f'model({str(source_synthetic)})_eval(real)_test.csv')
 
-                    if os.path.exists(classifier_result_train) and \
+                    if not (os.path.exists(classifier_result_train) and \
                         os.path.exists(classifier_result_val) and \
-                        os.path.exists(classifier_result_test):
-                        continue
-
-                    classifiers = []
-                    for class_id in class_list:
-                        classifier_file = os.path.join(classifier_dir, f'{class_id}_{source_synthetic.name.lower()}_model.plk')
-                        classifiers.append(ml_model.Serializable.load(classifier_file))
-
-                    syn_train_dataset, syn_val_dataset, syn_test_dataset = ml_data.load_synthetic_dataset(
-                        dir = config.get_result_dir(i_fold, source_synthetic, config.Artifacts.OUTPUT),
-                        transform = train_dataset.transform)
-
-                    df_train = ml_model.eval_specialist_classifiers(
-                            classes = class_list,
-                            classifiers = classifiers,
-                            dataset=syn_train_dataset,
-                            transform = train_dataset.transform,
-                            linearize_data=True
-                        )
-                    df_val = ml_model.eval_specialist_classifiers(
-                            classes = class_list,
-                            classifiers = classifiers,
-                            dataset=syn_val_dataset,
-                            transform = train_dataset.transform,
-                            linearize_data=True
-                        )
-                    df_test = ml_model.eval_specialist_classifiers(
-                            classes = class_list,
-                            classifiers = classifiers,
-                            dataset=syn_test_dataset,
-                            transform = train_dataset.transform,
-                            linearize_data=True
-                        )
-
-                    df_train.to_csv(classifier_result_train, index=False)
-                    df_val.to_csv(classifier_result_val, index=False)
-                    df_test.to_csv(classifier_result_test, index=False)
+                        os.path.exists(classifier_result_test)):
 
 
+                        classifiers = []
+                        for class_id in class_list:
+                            classifier_file = os.path.join(classifier_dir, f'{class_id}_{str(source_synthetic)}_model.plk')
+                            classifiers.append(ml_model.Serializable.load(classifier_file))
+
+
+                        df_train = ml_model.eval_specialist_classifiers(
+                                classes = class_list,
+                                classifiers = classifiers,
+                                dataset=train_dataset,
+                                linearize_data=True
+                            )
+                        df_val = ml_model.eval_specialist_classifiers(
+                                classes = class_list,
+                                classifiers = classifiers,
+                                dataset=val_dataset,
+                                linearize_data=True
+                            )
+                        df_test = ml_model.eval_specialist_classifiers(
+                                classes = class_list,
+                                classifiers = classifiers,
+                                dataset=test_dataset,
+                                linearize_data=True
+                            )
+
+                        df_train.to_csv(classifier_result_train, index=False)
+                        df_val.to_csv(classifier_result_val, index=False)
+                        df_test.to_csv(classifier_result_test, index=False)
+
+                    for source_synthetic2 in source_synthetics:
+
+                        classifier_result_train = os.path.join(classifier_output_dir, f'model({str(source_synthetic)})_eval({str(source_synthetic2)})_train.csv')
+                        classifier_result_val = os.path.join(classifier_output_dir, f'model({str(source_synthetic)})_eval({str(source_synthetic2)})_val.csv')
+                        classifier_result_test = os.path.join(classifier_output_dir, f'model({str(source_synthetic)})_eval({str(source_synthetic2)})_test.csv')
+
+                        if os.path.exists(classifier_result_train) and \
+                            os.path.exists(classifier_result_val) and \
+                            os.path.exists(classifier_result_test):
+                            continue
+
+                        classifiers = []
+                        for class_id in class_list:
+                            classifier_file = os.path.join(classifier_dir, f'{class_id}_{str(source_synthetic)}_model.plk')
+                            classifiers.append(ml_model.Serializable.load(classifier_file))
+
+                        syn_train_dataset, syn_val_dataset, syn_test_dataset = ml_data.load_synthetic_dataset(
+                                dir = config.get_result_dir(i_fold, source_synthetic2, config.Artifacts.OUTPUT),
+                                transform = train_dataset.transform
+                            )
+
+                        df_train = ml_model.eval_specialist_classifiers(
+                                classes = class_list,
+                                classifiers = classifiers,
+                                dataset=syn_train_dataset,
+                                linearize_data=True
+                            )
+                        df_val = ml_model.eval_specialist_classifiers(
+                                classes = class_list,
+                                classifiers = classifiers,
+                                dataset=syn_val_dataset,
+                                linearize_data=True
+                            )
+                        df_test = ml_model.eval_specialist_classifiers(
+                                classes = class_list,
+                                classifiers = classifiers,
+                                dataset=syn_test_dataset,
+                                linearize_data=True
+                            )
+
+                        df_train.to_csv(classifier_result_train, index=False)
+                        df_val.to_csv(classifier_result_val, index=False)
+                        df_test.to_csv(classifier_result_test, index=False)
 
 
     if one_fold_only:
         break
 
+if compare:
 
-    # for class_id in train_dataset.get_classes():
+    for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc="Folds", leave=False):
 
-    #     model_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.MODEL)
-    #     output_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.OUTPUT)
-    #     output_dir = os.path.join(output_dir, class_id)
-    #     os.makedirs(output_dir, exist_ok=True)
+        if i_fold in skip_folds:
+            continue
 
-    #     trainer_file = os.path.join(model_dir, f'{class_id}_model.plk')
-    #     training_loss_file = os.path.join(model_dir, f'{class_id}_loss_history.png')
-    #     training_sample_mp4 = os.path.join(model_dir, f'{class_id}_sample.mp4')
+        subsets = [
+            # 'train',
+            'val',
+            # 'test'
+        ]
 
-    #     if train:
+        print("####")
 
-    #         if os.path.exists(trainer_file):
-    #             continue
+        output_dir = config.get_result_dir(i_fold, config.Training.PLOTS)
 
-    #         # train.set_specialist_class(class_id)
-    #         class_train_dataset = train_dataset.filt_dataset(class_id)
+        for subset in subsets:
 
-    #         trainer = ml_gan.Gan_trainer(type = training_dict['type'],
-    #                                     latent_space_dim = training_dict['latent_space_dim'],
-    #                                     n_epochs = training_dict['n_epochs'],
-    #                                     lr = training_dict['lr'])
-    #         errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
+            for source in trainings:
 
-    #         trainer.save(trainer_file)
+                classifier_output_dir = config.get_result_dir(i_fold, source, config.Artifacts.OUTPUT)
 
-    #         batchs = range(1, errors.shape[0] + 1)
-    #         plt.figure(figsize=(10, 6))
-    #         plt.plot(batchs, errors[:,0], label='Discriminator Real Error')
-    #         plt.plot(batchs, errors[:,1], label='Discriminator Fake Error')
-    #         plt.plot(batchs, errors[:,2], label='Generator Error')
-    #         plt.xlabel('Batchs')
-    #         plt.ylabel('Error')
-    #         plt.title('Generator and Discriminator Errors per Epoch')
-    #         plt.legend()
-    #         plt.grid(True)
-    #         plt.savefig(training_loss_file)
-    #         plt.close()
+                for model, eval in itertools.product([source] + source_synthetics, repeat=2):
 
-    #     if evaluate:
+                    classifier_result_train = os.path.join(classifier_output_dir, f'model({str(model)})_eval({str(eval)})_{subset}.csv')
+                    if not os.path.exists(classifier_result_train):
+                        continue
 
-    #         if not os.path.exists(trainer_file):
-    #             continue
+                    df = pd.read_csv(classifier_result_train, index_col=None)
 
-    #         trainer = ml_model.Serializable.load(trainer_file)
-    #         images = trainer.generate_images(n_samples=training_dict['n_samples'])
+                    real_columns = df.columns[:4]
+                    predict_columns = df.columns[4:8]
 
-    #         for index, image in enumerate(images):
-    #             image_file = os.path.join(output_dir, f'{index}.png')
-    #             image.save(image_file)
+                    real_to_index = {label: class_list[index] for index, label in enumerate(real_columns)}
+                    predict_to_index = {label: class_list[index] for index, label in enumerate(predict_columns)}
 
+                    df['real'] = df[real_columns].idxmax(axis=1)
+                    df['predict'] = df[predict_columns].idxmax(axis=1)
+                    df['real'] = df['real'].map(real_to_index)
+                    df['predict'] = df['predict'].map(predict_to_index)
+
+                    cm = sklearn.confusion_matrix(df['real'], df['predict'], labels=class_list)
+                    disp = sklearn.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_list)
+                    disp.plot(cmap='Blues', values_format='d', xticks_rotation='vertical')
+
+                    cm_file = os.path.join(output_dir, f'cm_fold({i_fold})_model({str(model)})_eval({str(eval)})_{subset}.png')
+                    plt.savefig(cm_file)
+                    plt.close()
+
+        # classifier_result_test = os.path.join(classifier_output_dir, f'model({str(source_synthetic)})_eval({str(source_synthetic2)})_test.csv')
 
 
-
-
+        if one_fold_only:
+            break

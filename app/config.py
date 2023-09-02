@@ -20,6 +20,13 @@ class Training(enum.Enum):
     AE_REAL=10,
     AE_SYNTHETIC=11,
 
+    def __str__(self) -> str:
+        if (self == Training.CLASSIFIER_MLP_REAL) or (self == Training.CLASSIFIER_CNN_REAL) or \
+            (self == Training.CLASSIFIER_MLP_SYNTHETIC) or (self == Training.CLASSIFIER_CNN_SYNTHETIC) or \
+            (self == Training.CLASSIFIER_MLP_JOINT) or (self == Training.CLASSIFIER_CNN_JOINT):
+            return 'real'
+        return self.name.lower()
+
 class Artifacts(enum.Enum):
     MODEL=0,
     OUTPUT=1,

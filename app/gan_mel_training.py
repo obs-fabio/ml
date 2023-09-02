@@ -19,7 +19,7 @@ trainings_dict = [
     #     'n_epochs': 2048,
     #     'latent_space_dim': 128,
     #     'n_samples': 256,
-    #     'lr': 2e-4
+    #     'lr': 2e-4,
     #     'gen_cycles': 1
     # },
     {
@@ -64,7 +64,14 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
         config.make_dirs()
             
 
+<<<<<<< HEAD
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
+=======
+    if reset and train:
+        ml_utils.prepare_train_dir(config.get_result_dir(0, training_dict['dir']), backup=backup)
+        config.make_dirs()
+        
+>>>>>>> ac8ac458a0b168455110c7361e582a009ac0ce45
     for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
 
         if i_fold in skip_folds:

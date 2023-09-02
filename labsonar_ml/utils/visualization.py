@@ -37,7 +37,7 @@ def export_tsne(data: np.ndarray, labels: np.ndarray, filename: str, **kwargs):
 
     plt.figure(figsize=(8, 6))
     unique_labels = np.unique(labels)
-    colors = plt.cm.tab20(np.linspace(0, 1, len(unique_labels)))
+    colors = plt.cm.tab20(np.linspace(0, 1, max(20,len(unique_labels))))
     for i, label in enumerate(unique_labels):
         plt.scatter(tsne_data[labels == label, 0], tsne_data[labels == label, 1], color=colors[i], label=str(label))
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
