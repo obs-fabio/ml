@@ -32,6 +32,7 @@ def fit_specialist_classifier(model, dataset, class_id, batch_size, n_epochs, lr
     loss_func = torch.nn.BCELoss()
 
     device = ml_utils.get_available_device()
+    model.to(device)
 
     error_list = []
     for _ in tqdm.tqdm(range(n_epochs), leave=False, desc="Epochs"):
