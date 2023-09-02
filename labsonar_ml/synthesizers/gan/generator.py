@@ -54,7 +54,7 @@ class DCGAN(Generator):
         self.latent_dim = latent_dim
         self.feature_dim = feature_dim
 
-        initial_layer_size = 16
+        initial_layer_size = 4
         num_layers = int(round(math.log2(feature_dim)-math.log2(initial_layer_size)-1)) # aumentar initial_layer_size-> feature_dim/2 - considerando seguidas multiplicações por 2
 
         # input is batch_size x (latent_dim x 1 x 1)

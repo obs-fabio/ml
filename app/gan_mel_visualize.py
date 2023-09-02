@@ -18,13 +18,19 @@ trainings_dict = [
 ]
 
 reset=True
-backup=False
+backup=True
+one_fold_only = True
+
+skip_folds = [0, 1]
 
 ml_utils.print_available_device()
 
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
     for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
+
+        if i_fold in skip_folds:
+            continue
 
         plot_dir = config.get_result_dir(i_fold, config.Training.PLOTS)
 
@@ -61,6 +67,8 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
             continue
 
         ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_tse.png".format()))
-        ml_vis.export_pca(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_pca.png".format()))
+        # ml_vis.export_pca(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_pca.png".format()))
 
+        if one_fold_only:
+            break
     # ml_vis.export_tsne(all_data, all_labels, filename=os.path.join(base_input_dir, "gans_tse.png"))
