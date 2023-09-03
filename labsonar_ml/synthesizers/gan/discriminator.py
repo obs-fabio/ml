@@ -72,31 +72,30 @@ class DCGAN(ml_model.Base):
         return self.mlp(self.model(x))
 
 
-# class DCGAN(ml_model.Base):
-#     def __init__(self, n_channels: int, feature_dim: int, negative_slope: float = 0.2):
-#         super().__init__()
-#         self.n_channels = n_channels
-#         self.feature_dim = feature_dim
+class DCGAN2(ml_model.Base):
+    def __init__(self, n_channels: int, feature_dim: int, negative_slope: float = 0.2):
+        super().__init__()
+        self.n_channels = n_channels
+        self.feature_dim = feature_dim
 
-#         def discriminator_block(in_filters, out_filters, bn=True):
-#             block = [torch.nn.Conv2d(in_filters, out_filters, 3, 2, 1), torch.nn.LeakyReLU(0.2, inplace=True), torch.nn.Dropout2d(0.25)]
-#             if bn:
-#                 block.append(torch.nn.BatchNorm2d(out_filters, 0.8))
-#             return block
+        self.step1 = torch.nn.Sequential(
+            torch.nn.Conv2d(self.n_channels, self.feature_dim//2, (16, 8), (8, 4), (4, 2), bias=False),
+            torch.nn.BatchNorm2d(self.feature_dim//2),
+            torch.nn.LeakyReLU(negative_slope, inplace=True)
+        )
 
-#         self.model = torch.nn.Sequential(
-#             *discriminator_block(n_channels, 16, bn=False),
-#             *discriminator_block(16, 32),
-#             *discriminator_block(32, 64),
-#             *discriminator_block(64, 128),
-#         )
+        self.step2 = torch.nn.Sequential(
+            torch.nn.Conv2d(self.feature_dim//2, self.feature_dim//8, (8, 4), (4, 2), (2, 1), bias=False),
+        )
 
-#         # The height and width of downsampled image
-#         ds_size = feature_dim // 2 ** 4
-#         self.adv_layer = torch.nn.Sequential(torch.nn.Linear(128 * ds_size ** 2, 1), torch.nn.Sigmoid())
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Flatten(1),
+            torch.nn.Linear((self.feature_dim//8)**2 * (self.feature_dim//32), 1),
+            torch.nn.Sigmoid()
+        )
 
-#     def forward(self, img):
-#         out = self.model(img)
-#         out = out.view(out.shape[0], -1)
-#         validity = self.adv_layer(out)
-#         return validity
+    def forward(self, x):
+        x = self.step1(x)
+        x = self.step2(x)
+        x = self.mlp(x)
+        return x

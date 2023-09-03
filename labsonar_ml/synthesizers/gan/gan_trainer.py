@@ -89,10 +89,10 @@ class Gan_trainer(ml_train.Base_trainer):
             n_channels = image_dim[0]
             feature_dim = image_dim[1]
             
-            self.g_model = gan_g.DCGAN(n_channels = n_channels,
+            self.g_model = gan_g.DCGAN2(n_channels = n_channels,
                                         latent_dim = self.latent_space_dim,
                                         feature_dim = feature_dim)
-            self.d_model = gan_d.DCGAN(n_channels = n_channels,
+            self.d_model = gan_d.DCGAN2(n_channels = n_channels,
                                         feature_dim = feature_dim)
 
         else:

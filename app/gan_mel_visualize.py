@@ -7,14 +7,14 @@ import labsonar_ml.utils.visualization as ml_vis
 import app.config as config
 
 trainings_dict = [
-    {
-        'type': ml_gan.Type.GAN,
-        'dir': config.Training.GAN,
-    },
     # {
-    #     'type': ml_gan.Type.DCGAN,
-    #     'dir': config.Training.DCGAN,
-    # }
+    #     'type': ml_gan.Type.GAN,
+    #     'dir': config.Training.GAN,
+    # },
+    {
+        'type': ml_gan.Type.DCGAN,
+        'dir': config.Training.DCGAN,
+    }
 ]
 
 reset=True
@@ -24,6 +24,10 @@ one_fold_only = True
 skip_folds = [0, 1]
 
 ml_utils.print_available_device()
+
+if reset:
+    ml_utils.prepare_train_dir(config.get_result_dir(0, config.Training.PLOTS), backup=backup)
+    config.make_dirs()
 
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 

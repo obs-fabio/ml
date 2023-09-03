@@ -45,7 +45,7 @@ for type in types:
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(training_dir, exist_ok=True)
 
-        for class_id in tqdm.tqdm(range(10), desc="Class"):
+        for class_id in tqdm.tqdm(range(1), desc="Class"):
 
             trainer_file = os.path.join(training_dir, 'trainer_{:d}.plk'.format(class_id))
             training_history_file = os.path.join(training_dir, 'training_history_{:d}.png'.format(class_id))
@@ -79,7 +79,7 @@ for type in types:
 
     if evalueate:
 
-        for class_id in tqdm.tqdm(range(10), desc="Class"):
+        for class_id in tqdm.tqdm(range(1), desc="Class"):
 
             trainer_file = os.path.join(training_dir, 'trainer_{:d}.plk'.format(class_id))
             
