@@ -46,9 +46,9 @@ def generate_augmentation(input_dir, output_dir, n_samples):
         image = Image.fromarray(data, mode='L')
         image.save(os.path.join(output_dir, f'__{i}.png'))
 
-    for i, data in enumerate(images):
-        image = Image.fromarray(data, mode='L')
-        image.save(os.path.join(output_dir, f'{i}.png'))
+    # for i, data in enumerate(images):
+    #     image = Image.fromarray(data, mode='L')
+    #     image.save(os.path.join(output_dir, f'{i}.png'))
 
 
 classes = [d for d in os.listdir(input_folder) if os.path.isdir(os.path.join(input_folder, d))]
@@ -61,7 +61,7 @@ for class_id in classes:
 outputs = [os.path.join(output_folder, d) for d in inputs]
 inputs = [os.path.join(input_folder,d) for d in inputs]
 
-n_samples = 50
+n_samples = 500
 for in_dir, out_dir in zip(inputs, outputs):
     os.makedirs(out_dir, exist_ok=True)
     generate_augmentation(in_dir, out_dir, n_samples)

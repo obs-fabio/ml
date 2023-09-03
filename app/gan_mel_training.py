@@ -26,14 +26,20 @@ trainings_dict = [
         'type': ml_gan.Type.DCGAN,
         'dir': config.Training.DCGAN,
         'batch_size': 8,
+<<<<<<< HEAD
         'n_epochs': 512,
         'latent_space_dim': 16,
+=======
+        'n_epochs': 2048,
+        'latent_space_dim': 128,
+>>>>>>> 65f72c551d651f3bd791c7666af5265c75a1fceb
         'lr': 2e-4,
         'gen_cycles': 5,
         'n_samples': 256,
     }
 ]
 # Sequencia de teste
+<<<<<<< HEAD
 # 0 - 'n_epochs': 512, 'latent_space_dim': 8, 'lr': 2e-4, 'gen_cycles': 2
 # 1 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 2      final_layer_size 4
 # 2 - 'n_epochs': 512, 'latent_space_dim': 32, 'lr': 2e-4, 'gen_cycles': 2
@@ -44,6 +50,12 @@ trainings_dict = [
 # 6 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 3       final_layer_size 8
 # 6 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 5       final_layer_size 8
 
+=======
+# 0 - 'n_epochs': 512, 'latent_space_dim': 128, 'lr': 2e-4, 'gen_cycles': 2
+# 1 - 'n_epochs': 512, 'latent_space_dim': 32, 'lr': 2e-4, 'gen_cycles': 2
+# 2 - 'n_epochs': 2048, 'latent_space_dim': 128, 'lr': 2e-4, 'gen_cycles': 1
+# 3 - 'n_epochs': 512, 'latent_space_dim': 128, 'lr': 0.5e-4, 'gen_cycles': 5
+>>>>>>> 65f72c551d651f3bd791c7666af5265c75a1fceb
 
 
 reset=True

@@ -25,6 +25,10 @@ skip_folds = [0, 1]
 
 ml_utils.print_available_device()
 
+if reset:
+    ml_utils.prepare_train_dir(config.get_result_dir(0, config.Training.PLOTS), backup=backup)
+    config.make_dirs()
+
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
     for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
