@@ -21,15 +21,15 @@ trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP
 source_synthetics = [config.Training.GAN]
 
 batch_size=32
-n_epochs=64
+n_epochs=128
 lr=1e-3
 
-reset=False
-backup=True
+reset=True
+backup=False
 train = True
 evaluate = True
 compare = True
-one_fold_only = False
+one_fold_only = True
 
 skip_folds = []
 
@@ -69,9 +69,10 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                     classifier = trainer.d_model
                     classifier.reset_output_layer()
 
-                    errors = ml_model.fit_specialist_classifier(
+                    errors, val_errors = ml_model.fit_specialist_classifier(
                             model=classifier,
-                            dataset=train_dataset,
+                            trainset=train_dataset,
+                            validationset=val_dataset,
                             class_id=id,
                             batch_size=batch_size,
                             n_epochs=n_epochs,
@@ -81,12 +82,13 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
 
                     classifier.save(classifier_file)
 
-                    batchs = range(1, errors.shape[0] + 1)
+                    epochs = range(1, errors.shape[0] + 1)
                     plt.figure(figsize=(10, 6))
-                    plt.plot(batchs, errors, label='Error')
-                    plt.xlabel('Batchs')
+                    plt.plot(epochs, errors, label='Training Error')
+                    plt.plot(epochs, val_errors, label='Validation Error')
+                    plt.xlabel('Epochs')
                     plt.ylabel('Error')
-                    plt.yscale('log')
+                    #plt.yscale('log')
                     plt.title(f'Classifier {class_id} from real data')
                     plt.legend()
                     plt.grid(True)
@@ -197,22 +199,25 @@ for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(co
                         trainer = ml_model.Serializable.load(trainer_file)
                         classifier = trainer.d_model
 
-                        errors = ml_model.fit_specialist_classifier(
-                                model=classifier,
-                                dataset=syn_train_dataset,
-                                class_id=class_list.index(class_id),
-                                batch_size=batch_size,
-                                n_epochs=n_epochs,
-                                lr=lr,
-                                linearize_data=True
-                            )
+                        errors, val_errors = ml_model.fit_specialist_classifier(
+                                            model=classifier,
+                                            trainset=syn_train_dataset,
+                                            validationset=syn_val_dataset,
+                                            class_id=class_list.index(class_id),
+                                            batch_size=batch_size,
+                                            n_epochs=n_epochs,
+                                            lr=lr,
+                                            linearize_data=True
+                                            )
+                        
 
-                        batchs = range(1, errors.shape[0] + 1)
+                        epochs = range(1, errors.shape[0] + 1)
                         plt.figure(figsize=(10, 6))
-                        plt.plot(batchs, errors, label='Error')
-                        plt.xlabel('Batchs')
+                        plt.plot(epochs, errors, label='Train Error')
+                        plt.plot(epochs, val_errors, label='Validation Error')
+                        plt.xlabel('Epochs')
                         plt.ylabel('Error')
-                        plt.yscale('log')
+                        #plt.yscale('log')
                         plt.title(f'Classifier {class_id} from real data')
                         plt.legend()
                         plt.grid(True)
