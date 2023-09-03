@@ -27,21 +27,22 @@ trainings_dict = [
         'dir': config.Training.DCGAN,
         'batch_size': 8,
         'n_epochs': 512,
-        'latent_space_dim': 32,
+        'latent_space_dim': 16,
         'lr': 2e-4,
-        'gen_cycles': 2,
+        'gen_cycles': 5,
         'n_samples': 256,
     }
 ]
 # Sequencia de teste
 # 0 - 'n_epochs': 512, 'latent_space_dim': 8, 'lr': 2e-4, 'gen_cycles': 2
-# 1 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 2
+# 1 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 2      final_layer_size 4
 # 2 - 'n_epochs': 512, 'latent_space_dim': 32, 'lr': 2e-4, 'gen_cycles': 2
 # 3 - 'n_epochs': 512, 'latent_space_dim': 64, 'lr': 2e-4, 'gen_cycles': 2
-# 4 - 'n_epochs': 512, 'latent_space_dim': 128, 'lr': 2e-4, 'gen_cycles': 2
-# 5 - 'n_epochs': 512, 'latent_space_dim': 32, 'lr': 2e-4, 'gen_cycles': 1
-# 6 - 'n_epochs': 512, 'latent_space_dim': 64, 'lr': 2e-4, 'gen_cycles': 1
-# 7 - 'n_epochs': 512, 'latent_space_dim': 128, 'lr': 2e-4, 'gen_cycles': 1
+# 4 - 'n_epochs': 512, 'latent_space_dim': 4, 'lr': 2e-4, 'gen_cycles': 2
+
+# 5 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 2       final_layer_size 8
+# 6 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 3       final_layer_size 8
+# 6 - 'n_epochs': 512, 'latent_space_dim': 16, 'lr': 2e-4, 'gen_cycles': 5       final_layer_size 8
 
 
 
@@ -64,14 +65,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
         config.make_dirs()
             
 
-<<<<<<< HEAD
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
-=======
-    if reset and train:
-        ml_utils.prepare_train_dir(config.get_result_dir(0, training_dict['dir']), backup=backup)
-        config.make_dirs()
-        
->>>>>>> ac8ac458a0b168455110c7361e582a009ac0ce45
     for i_fold, (train_dataset, val_dataset, test_dataset) in tqdm.tqdm(enumerate(config.get_dataset_loro()), desc=f"{training_dict['type'].name.lower()}_Fold", leave=False):
 
         if i_fold in skip_folds:
