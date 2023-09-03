@@ -19,6 +19,7 @@ class Training(enum.Enum):
     CLASSIFIER_CNN_JOINT=9,
     AE_REAL=10,
     AE_SYNTHETIC=11,
+    GANBIN=12,
 
     def __str__(self) -> str:
         if (self == Training.CLASSIFIER_MLP_REAL) or (self == Training.CLASSIFIER_CNN_REAL) or \

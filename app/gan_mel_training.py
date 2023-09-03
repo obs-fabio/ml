@@ -12,46 +12,50 @@ import labsonar_ml.data_loader as ml_data
 import app.config as config
 
 trainings_dict = [
+    {
+        'type': ml_gan.Type.GAN,
+        'dir': config.Training.GAN,
+        'batch_size': 32,
+        'n_epochs': 512,
+        'latent_space_dim': 128,
+        'n_samples': 256,
+        'lr': 2e-4,
+        'gen_cycles': 1
+    },
+    {
+        'type': ml_gan.Type.GAN_BIN,
+        'dir': config.Training.GANBIN,
+        'batch_size': 32,
+        'n_epochs': 512,
+        'latent_space_dim': 128,
+        'n_samples': 256,
+        'lr': 2e-4,
+        'gen_cycles': 1
+    },
     # {
-    #     'type': ml_gan.Type.GAN,
-    #     'dir': config.Training.GAN,
-    #     'batch_size': 32,
+    #     'type': ml_gan.Type.DCGAN,
+    #     'dir': config.Training.DCGAN,
+    #     'batch_size': 8,
     #     'n_epochs': 2048,
     #     'latent_space_dim': 128,
-    #     'n_samples': 256,
     #     'lr': 2e-4,
-    #     'gen_cycles': 1
-    # },
-    {
-        'type': ml_gan.Type.DCGAN,
-        'dir': config.Training.DCGAN,
-        'batch_size': 8,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'lr': 2e-4,
-        'gen_cycles': 5,
-        'n_samples': 256,
-    }
+    #     'gen_cycles': 5,
+    #     'n_samples': 256,
+    # }
 ]
-# Sequencia de teste
-# 0 - 'n_epochs': 512, 'latent_space_dim': 128, 'lr': 2e-4, 'gen_cycles': 2
-# 1 - 'n_epochs': 512, 'latent_space_dim': 32, 'lr': 2e-4, 'gen_cycles': 2
-# 2 - 'n_epochs': 2048, 'latent_space_dim': 128, 'lr': 2e-4, 'gen_cycles': 1
-# 3 - 'n_epochs': 512, 'latent_space_dim': 128, 'lr': 0.5e-4, 'gen_cycles': 5
 
 
-reset=True
-backup=True
+reset=False
+backup=False
 train = True
 evaluate = True
 one_fold_only = True
 one_class_only = False
 
-skip_folds = [0, 1]
+skip_folds = [0, 1, 2]
 
 ml_utils.print_available_device()
 config.make_dirs()
-
 
 for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
     if reset and train:
@@ -98,6 +102,9 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                 plt.plot(batchs, errors[:,0], label='Discriminator Real Error')
                 plt.plot(batchs, errors[:,1], label='Discriminator Fake Error')
                 plt.plot(batchs, errors[:,2], label='Generator Error')
+                if errors.shape[1] >= 5:
+                    plt.plot(batchs, errors[:,3], label='Discriminator(Bin) Real Error')
+                    plt.plot(batchs, errors[:,4], label='Discriminator(Bin) Fake Error')
                 plt.xlabel('Batchs')
                 plt.ylabel('Error')
                 plt.yscale('log')

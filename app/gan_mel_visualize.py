@@ -3,27 +3,42 @@ import numpy as np
 
 import labsonar_ml.synthesizers.gan.gan_trainer as ml_gan
 import labsonar_ml.utils.utils as ml_utils
+import labsonar_ml.data_loader as ml_data
 import labsonar_ml.utils.visualization as ml_vis
 import app.config as config
 
 trainings_dict = [
-    # {
-    #     'type': ml_gan.Type.GAN,
-    #     'dir': config.Training.GAN,
-    # },
     {
-        'type': ml_gan.Type.DCGAN,
-        'dir': config.Training.DCGAN,
-    }
+        'type': ml_gan.Type.GAN,
+        'dir': config.Training.GAN,
+    },
+    {
+        'type': ml_gan.Type.GAN_BIN,
+        'dir': config.Training.GANBIN,
+    },
+    # {
+    #     'type': ml_gan.Type.DCGAN,
+    #     'dir': config.Training.DCGAN,
+    # }
 ]
 
-reset=True
-backup=True
+reset=False
+backup=False
 one_fold_only = True
 
-skip_folds = [0, 1]
+skip_folds = [0, 1, 2]
 
 ml_utils.print_available_device()
+config.make_dirs()
+
+def read_images(files, transform = None):
+    images = []
+    for file in files:
+        image = ml_data.read_image(file, transform)
+        # image = image[:, :, 75:95]
+        image = image.reshape(-1)
+        images.append(image.tolist())
+    return np.array(images)
 
 if reset:
     ml_utils.prepare_train_dir(config.get_result_dir(0, config.Training.PLOTS), backup=backup)
@@ -48,7 +63,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
             files = train_dataset.get_files(class_id=class_id, run_id=None)
             if files:
-                images = ml_utils.read_images(files, transform=train_dataset.transform)
+                images = read_images(files, transform=train_dataset.transform)
 
                 if data is None:
                     data = images
@@ -60,7 +75,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
             files = ml_utils.get_files(output_dir, 'png')
             if files:
-                images = ml_utils.read_images(files, transform=train_dataset.transform)
+                images = read_images(files, transform=train_dataset.transform)
 
                 data = np.concatenate((data, images), axis=0)
 
