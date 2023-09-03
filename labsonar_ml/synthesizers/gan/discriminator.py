@@ -36,7 +36,7 @@ class DCGAN(ml_model.Base):
         self.n_channels = n_channels
         self.feature_dim = feature_dim
 
-        final_layer_size = 4
+        final_layer_size = 8
 
         num_layers = int(round(math.log2(feature_dim)-math.log2(final_layer_size)-1)) # reduzir feature_dim/2 -> 4 - considerando seguidas divisões por 2
 
