@@ -12,82 +12,60 @@ import labsonar_ml.data_loader as ml_data
 import app.config as config
 
 trainings_dict = [
-    {
-        'type': ml_gan.Type.GAN,
-        'dir': config.Training.GAN,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 0
-    },
-    {
-        'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANBIN_10,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 10
-    },
-    {
-        'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANBIN_20,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 20
-    },
-    {
-        'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANBIN_30,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 30
-    },
-    {
-        'type': ml_gan.Type.GAN_BIN_Y,
-        'dir': config.Training.GANBIN_Y,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 0
-    },
     # {
-    #     'type': ml_gan.Type.DCGAN,
-    #     'dir': config.Training.DCGAN,
-    #     'batch_size': 8,
-    #     'n_epochs': 2048,
+    #     'type': ml_gan.Type.GAN,
+    #     'dir': config.Training.GAN,
+    #     'batch_size': 32,
+    #     'n_epochs': 1024,
     #     'latent_space_dim': 128,
-    #     'lr': 2e-4,
-    #     'gen_cycles': 5,
     #     'n_samples': 256,
-    # }
+    #     'lr': 2e-4,
+    #     'gen_cycles': 1,
+    #     'n_bins': 0
+    # },
+    {
+        'type': ml_gan.Type.GAN_BIN,
+        'dir': config.Training.GANSPE,
+        'batch_size': 32,
+        'n_epochs': 1024,
+        'latent_space_dim': 128,
+        'n_samples': 256,
+        'lr': 2e-4,
+        'gen_cycles': 1,
+        'n_bins': 0
+    }
 ]
 
+# selections = {
+# 	'A': [range(71,99)],
+# 	'B': [range(2,8), range(26,32), range(38,44), range(65,91)],
+# 	'C': [range(1,8), range(14,19), range(28,35), range(70,75)],
+# 	'D': [range(1,10), range(14,18), range(33,38)],
+# }
+selections = {
+	'A': [range(1,128)],
+	'B': [range(1,128)],
+	'C': [range(1,128)],
+	'D': [range(1,128)],
+}
 
-reset=False
-backup=False
+bin_selections = {}
+for id, list_index in selections.items():
+    bin_selections[id] = []
+    for list in list_index:
+        for i in list:
+            bin_selections[id].append(i)
+
+
+reset=True
+backup=True
 train = True
 evaluate = True
-one_fold_only = False
+one_fold_only = True
 one_class_only = False
 
 skip_folds = []
+selected_class = ['D']
 
 ml_utils.print_available_device()
 config.make_dirs()
@@ -104,11 +82,10 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
         if i_fold in skip_folds:
             continue
 
-        bin_dir = config.get_result_dir(i_fold, config.Training.BASELINE, config.Artifacts.OUTPUT)
-        bin_files = os.path.join(bin_dir, f"baseline_f1.txt")
-        bin_indexes = np.loadtxt(bin_files, dtype=int)
-
         for class_id in train_dataset.get_classes():
+
+            if not class_id in selected_class and one_class_only:
+                continue
 
             model_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.MODEL)
             output_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.OUTPUT)
@@ -121,16 +98,13 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
             if train:
 
-                if os.path.exists(trainer_file):
+                if os.path.exists(trainer_file) and not one_class_only:
                     continue
 
                 # train.set_specialist_class(class_id)
                 class_train_dataset = train_dataset.filt_dataset(class_id)
 
-                if training_dict['n_bins'] == 0:
-                    selected_bins = None
-                else:
-                    selected_bins = bin_indexes[:training_dict['n_bins']]
+                selected_bins = bin_selections[class_id]
 
                 trainer = ml_gan.Gan_trainer(type = training_dict['type'],
                                             latent_space_dim = training_dict['latent_space_dim'],
@@ -161,7 +135,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
             if evaluate:
 
-                if not os.path.exists(trainer_file):
+                if not os.path.exists(trainer_file) and not one_class_only:
                     continue
 
                 trainer = ml_model.Serializable.load(trainer_file)

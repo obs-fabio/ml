@@ -18,10 +18,10 @@ import app.config as config
 source_model = config.Training.GAN
 # trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP_SYNTHETIC, config.Training.CLASSIFIER_MLP_JOINT]
 trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP_SYNTHETIC]
-source_synthetics = [config.Training.GAN, config.Training.GANBIN]
+source_synthetics = [config.Training.GAN, config.Training.GANBIN_10, config.Training.GANBIN_20, config.Training.GANBIN_30, config.Training.GANBIN_Y]
 
 batch_size=32
-n_epochs=64
+n_epochs=128
 lr=1e-3
 
 reset=True
@@ -29,9 +29,9 @@ backup=True
 train = True
 evaluate = True
 compare = True
-one_fold_only = True
+one_fold_only = False
 
-skip_folds = [0, 1, 2]
+skip_folds = []
 
 ml_utils.print_available_device()
 config.make_dirs()

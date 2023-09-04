@@ -14,19 +14,15 @@ trainings_dict = [
     },
     {
         'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANBIN,
-    },
-    # {
-    #     'type': ml_gan.Type.DCGAN,
-    #     'dir': config.Training.DCGAN,
-    # }
+        'dir': config.Training.GANSPE,
+    }
 ]
 
-reset=False
-backup=False
+reset=True
+backup=True
 one_fold_only = True
 
-skip_folds = [0, 1, 2]
+skip_folds = []
 
 ml_utils.print_available_device()
 config.make_dirs()
@@ -89,9 +85,9 @@ for selected_bins in [True, False]:
                 continue
 
             if selected_bins:
-                ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_bin_tse.png"))
+                ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['dir'].name.lower()}_{i_fold}_bin_tse.png"))
             else:
-                ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_tse.png"))
+                ml_vis.export_tsne(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['dir'].name.lower()}_{i_fold}_tse.png"))
                 # ml_vis.export_pca(data, np.array(labels), filename=os.path.join(plot_dir, f"{training_dict['type'].name.lower()}_{i_fold}_pca.png"))
 
             if one_fold_only:

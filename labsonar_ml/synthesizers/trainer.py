@@ -25,7 +25,7 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         pass
 
     @abstractmethod
-    def train_step(self, samples) -> np.ndarray:
+    def train_step(self, samples, epoch) -> np.ndarray:
         """realiza um step do treinamento
 
         Args:
@@ -74,10 +74,10 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
 
         self.error_list = []
         training_images = []
-        for _ in tqdm.tqdm(range(self.n_epochs), leave=False, desc="Epochs"):
+        for i_epochs in tqdm.tqdm(range(self.n_epochs), leave=False, desc="Epochs"):
 
             for batch, (samples, _) in enumerate(data_loader):
-                error = self.train_step(samples)
+                error = self.train_step(samples, i_epochs/self.n_epochs)
                 self.error_list.append(list(error))
                 
                 if export_progress_file is not None and self.n_epochs < video_target_size:
