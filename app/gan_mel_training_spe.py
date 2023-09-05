@@ -28,26 +28,40 @@ trainings_dict = [
         'dir': config.Training.GANSPE,
         'batch_size': 32,
         'n_epochs': 1024,
-        'latent_space_dim': 128,
+        'latent_space_dim': 256,
         'n_samples': 256,
         'lr': 2e-4,
         'gen_cycles': 1,
-        'n_bins': 0
+        'n_bins': 0,
+        'alternate_training': False,
+        'mod_chance': 1,
+        'lr_factor': 0.8,
     }
 ]
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 1,
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   ----  X
+# 'alternate_training': False, 'mod_chance': 0.8, 'lr_factor': 0.8,
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.6,
+# 'alternate_training': True, 'mod_chance': 0.1, 'lr_factor': 1,
+# 'alternate_training': True, 'mod_chance': 0.05, 'lr_factor': 0.6,
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.7,
+# 'alternate_training': False, 'mod_chance': 0.7, 'lr_factor': 0.8,
+# 'alternate_training': False, 'mod_chance': 0.5, 'lr_factor': 0.6,
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   ----  X
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.9,
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.7,   ----  X
 
-# selections = {
-# 	'A': [range(71,99)],
-# 	'B': [range(2,8), range(26,32), range(38,44), range(65,91)],
-# 	'C': [range(1,8), range(14,19), range(28,35), range(70,75)],
-# 	'D': [range(1,10), range(14,18), range(33,38)],
-# }
+
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   'latent_space_dim': 256,
+
+
 selections = {
-	'A': [range(1,128)],
-	'B': [range(1,128)],
-	'C': [range(1,128)],
-	'D': [range(1,128)],
+	'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
+	'B': [range(2,8), range(26,32), range(38,44), range(65,91)],
+	'C': [range(1,8), range(14,19), range(28,35), range(70,75)],
+	'D': [range(1,10), range(14,18), range(33,38), range(55,62)],
 }
+
 
 bin_selections = {}
 for id, list_index in selections.items():
@@ -111,7 +125,11 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                                             n_epochs = training_dict['n_epochs'],
                                             lr = training_dict['lr'],
                                             n_g = training_dict['gen_cycles'],
-                                            bins=selected_bins)
+                                            bins=selected_bins,
+                                            alternate_training = training_dict['alternate_training'],
+                                            mod_chance = training_dict['mod_chance'],
+                                            lr_factor = training_dict['lr_factor'])
+
                 errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
 
                 trainer.save(trainer_file)

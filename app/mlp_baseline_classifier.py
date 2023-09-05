@@ -20,7 +20,7 @@ training = config.Training.MLP_CLASSIFIER
 source_synthetics = [config.Training.GANSPE]
 
 batch_size=32
-n_epochs=128
+n_epochs=64
 lr=1e-3
 n_neurons=8
 

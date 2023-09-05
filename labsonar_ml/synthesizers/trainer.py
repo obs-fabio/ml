@@ -6,6 +6,7 @@ from abc import abstractmethod
 import numpy as np
 import imageio
 import PIL
+import random
 
 import torch.utils.data as torch_data
 import torchvision
@@ -25,7 +26,7 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         pass
 
     @abstractmethod
-    def train_step(self, samples, epoch) -> np.ndarray:
+    def train_step(self, samples, rand) -> np.ndarray:
         """realiza um step do treinamento
 
         Args:
@@ -76,8 +77,10 @@ class Base_trainer(ml_model.Serializable, abc.ABC):
         training_images = []
         for i_epochs in tqdm.tqdm(range(self.n_epochs), leave=False, desc="Epochs"):
 
+            rand = random.uniform(0, 1)
+
             for batch, (samples, _) in enumerate(data_loader):
-                error = self.train_step(samples, i_epochs/self.n_epochs)
+                error = self.train_step(samples, rand)
                 self.error_list.append(list(error))
                 
                 if export_progress_file is not None and self.n_epochs < video_target_size:

@@ -8,10 +8,10 @@ import labsonar_ml.utils.visualization as ml_vis
 import app.config as config
 
 trainings_dict = [
-    {
-        'type': ml_gan.Type.GAN,
-        'dir': config.Training.GAN,
-    },
+    # {
+    #     'type': ml_gan.Type.GAN,
+    #     'dir': config.Training.GAN,
+    # },
     {
         'type': ml_gan.Type.GAN_BIN,
         'dir': config.Training.GANSPE,
@@ -41,7 +41,7 @@ if reset:
     ml_utils.prepare_train_dir(config.get_result_dir(0, config.Training.PLOTS), backup=backup)
     config.make_dirs()
 
-for selected_bins in [True, False]:
+for selected_bins in [False]: # [True, False]:
 
     for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 

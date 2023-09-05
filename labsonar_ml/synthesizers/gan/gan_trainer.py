@@ -32,7 +32,11 @@ class Gan_trainer(ml_train.Base_trainer):
                  batch_size: int = 32,
                  n_d=1,
                  n_g=1,
-                 bins=[]):
+                 bins=[],
+                 alternate_training = True,
+                 mod_chance = 1,
+                 lr_factor = 1,
+                 ):
         super().__init__(n_epochs, batch_size)
 
         self.type = type
@@ -45,6 +49,10 @@ class Gan_trainer(ml_train.Base_trainer):
         self.n_g = n_g
 
         self.bins = bins
+
+        self.alternate_training = alternate_training
+        self.mod_chance = mod_chance
+        self.lr_factor = lr_factor
 
     def discriminator_step(self, real_data, fake_data) -> float:
         n_samples = real_data.size(0)
@@ -70,8 +78,8 @@ class Gan_trainer(ml_train.Base_trainer):
 
         fake_data = fake_data.reshape(*real_data.shape)
 
-        r_data = torch.autograd.variable.Variable(real_data[:, :, :, self.bins].reshape(n_samples, -1))
-        f_data = torch.autograd.variable.Variable(fake_data[:, :, :, self.bins].reshape(n_samples, -1))
+        r_data = torch.autograd.variable.Variable(real_data[:, :, self.bins, :].reshape(n_samples, -1))
+        f_data = torch.autograd.variable.Variable(fake_data[:, :, self.bins, :].reshape(n_samples, -1))
 
         self.d2_optimizador.zero_grad()
 
@@ -135,9 +143,9 @@ class Gan_trainer(ml_train.Base_trainer):
         n_samples = real_data.size(0)
 
         f_data = fake_data.reshape(*real_data.shape)
-        f_data = torch.autograd.variable.Variable(f_data[:, :, :, self.bins].reshape(n_samples, -1))
+        f_data = torch.autograd.variable.Variable(f_data[:, :, self.bins, :].reshape(n_samples, -1))
 
-        self.g_optimizador.zero_grad()
+        self.g2_optimizador.zero_grad()
 
         f_data = f_data.to(self.device)
 
@@ -146,7 +154,7 @@ class Gan_trainer(ml_train.Base_trainer):
         loss = self.loss_func(pred, ml_utils.make_targets(n_samples, 1, self.device))
         loss.backward()
 
-        self.g_optimizador.step()
+        self.g2_optimizador.step()
 
         return loss.tolist()
 
@@ -154,7 +162,7 @@ class Gan_trainer(ml_train.Base_trainer):
         n_samples = real_data.size(0)
 
         f_data = fake_data.reshape(*real_data.shape)
-        f_data = torch.autograd.variable.Variable(f_data[:, :, :, self.bins].reshape(n_samples, -1))
+        f_data = torch.autograd.variable.Variable(f_data[:, :, self.bins, :].reshape(n_samples, -1))
 
         self.g_optimizador.zero_grad()
 
@@ -228,6 +236,7 @@ class Gan_trainer(ml_train.Base_trainer):
 
             self.d2_model = self.d2_model.to(self.device)
             self.d2_optimizador = torch.optim.Adam(self.d2_model.parameters(), lr = self.lr)
+            self.g2_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.lr * self.lr_factor)
 
         elif self.type == Type.GAN_BIN_Y:
 
@@ -251,40 +260,78 @@ class Gan_trainer(ml_train.Base_trainer):
         self.d_optimizador = torch.optim.Adam(self.d_model.parameters(), lr = self.lr)
 
     @overrides
-    def train_step(self, samples, epoch) -> np.ndarray:
+    def train_step(self, samples, rand) -> np.ndarray:
         n_samples = samples.size(0)
 
-        for _ in range(self.n_d):
+        if (self.type == Type.GAN) or (self.type == Type.GAN_BIN) or (self.type == Type.GAN_BIN_Y):
+            data = torch.autograd.variable.Variable(ml_utils.images_to_vectors(samples))
+        else:
+            data = samples
 
-            if (self.type == Type.GAN) or (self.type == Type.GAN_BIN) or (self.type == Type.GAN_BIN_Y):
-                real_data = torch.autograd.variable.Variable(ml_utils.images_to_vectors(samples))
-            else:
-                real_data = samples
+        fake_data = self.g_model.generate(n_samples, self.device)
 
-            fake_data = self.g_model.generate(n_samples, self.device)
-            d_real_error, d_fake_error = self.discriminator_step(real_data, fake_data)
+        d_real_error, d_fake_error = self.discriminator_step(data, fake_data)
 
         if self.type == Type.GAN_BIN:
+            d2_real_error, d2_fake_error = self.discriminator_bin_step(samples, fake_data)
 
-            for _ in range(self.n_d):
 
-                real_data = samples
+        if self.alternate_training:
+            if rand <= self.mod_chance:
                 fake_data = self.g_model.generate(n_samples, self.device)
-                d2_real_error, d2_fake_error = self.discriminator_bin_step(real_data, fake_data)
-
-            for _ in range(self.n_g):
-
                 fake_data = self.g_model.generate(n_samples, self.device)
-                g_error = self.generator_bin2_step(samples, fake_data)
+                g_error = self.generator_bin_step(samples, fake_data)
 
-            return np.array([d_real_error, d_fake_error, g_error, d2_real_error, d2_fake_error])
+            else:
+                fake_data = self.g_model.generate(n_samples, self.device)
+                g_error = self.generator_step(fake_data)
 
-        for _ in range(self.n_g):
+        else:
+            if rand <= self.mod_chance:
+                fake_data = self.g_model.generate(n_samples, self.device)
+                fake_data = self.g_model.generate(n_samples, self.device)
+                g_error = self.generator_bin_step(samples, fake_data)
 
             fake_data = self.g_model.generate(n_samples, self.device)
             g_error = self.generator_step(fake_data)
 
+
+        if self.type == Type.GAN_BIN:
+            return np.array([d_real_error, d_fake_error, g_error, d2_real_error, d2_fake_error])
+
         return np.array([d_real_error, d_fake_error, g_error])
+
+        # for _ in range(self.n_d):
+
+        #     if (self.type == Type.GAN) or (self.type == Type.GAN_BIN) or (self.type == Type.GAN_BIN_Y):
+        #         real_data = torch.autograd.variable.Variable(ml_utils.images_to_vectors(samples))
+        #     else:
+        #         real_data = samples
+
+        #     fake_data = self.g_model.generate(n_samples, self.device)
+        #     d_real_error, d_fake_error = self.discriminator_step(real_data, fake_data)
+
+        # if self.type == Type.GAN_BIN:
+
+        #     for _ in range(self.n_d):
+
+        #         real_data = samples
+        #         fake_data = self.g_model.generate(n_samples, self.device)
+        #         d2_real_error, d2_fake_error = self.discriminator_bin_step(real_data, fake_data)
+
+        #     for _ in range(self.n_g):
+
+        #         fake_data = self.g_model.generate(n_samples, self.device)
+        #         g_error = self.generator_bin2_step(samples, fake_data)
+
+        #     return np.array([d_real_error, d_fake_error, g_error, d2_real_error, d2_fake_error])
+
+        # for _ in range(self.n_g):
+
+        #     fake_data = self.g_model.generate(n_samples, self.device)
+        #     g_error = self.generator_step(fake_data)
+
+        # return np.array([d_real_error, d_fake_error, g_error])
     
         # for _ in range(self.n_d):
 
