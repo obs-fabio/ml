@@ -12,23 +12,12 @@ import labsonar_ml.data_loader as ml_data
 import app.config as config
 
 trainings_dict = [
-    # {
-    #     'type': ml_gan.Type.GAN,
-    #     'dir': config.Training.GAN,
-    #     'batch_size': 32,
-    #     'n_epochs': 1024,
-    #     'latent_space_dim': 128,
-    #     'n_samples': 256,
-    #     'lr': 2e-4,
-    #     'gen_cycles': 1,
-    #     'n_bins': 0
-    # },
     {
-        'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANSPE,
+        'type': ml_gan.Type.GAN,
+        'dir': config.Training.GAN,
         'batch_size': 32,
         'n_epochs': 1024,
-        'latent_space_dim': 256,
+        'latent_space_dim': 128,
         'n_samples': 256,
         'lr': 2e-4,
         'gen_cycles': 1,
@@ -36,7 +25,21 @@ trainings_dict = [
         'alternate_training': False,
         'mod_chance': 1,
         'lr_factor': 0.8,
-    }
+    },
+    # {
+    #     'type': ml_gan.Type.GAN_BIN,
+    #     'dir': config.Training.GANSPE,
+    #     'batch_size': 32,
+    #     'n_epochs': 10000,
+    #     'latent_space_dim': 128,
+    #     'n_samples': 256,
+    #     'lr': 2e-4,
+    #     'gen_cycles': 1,
+    #     'n_bins': 0,
+    #     'alternate_training': False,
+    #     'mod_chance': 1,
+    #     'lr_factor': 0.8,
+    # }
 ]
 # 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 1,
 # 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   ----  X
@@ -53,6 +56,7 @@ trainings_dict = [
 
 
 # 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   'latent_space_dim': 256,
+# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   'latent_space_dim': 64,
 
 
 selections = {
@@ -76,10 +80,10 @@ backup=True
 train = True
 evaluate = True
 one_fold_only = True
-one_class_only = False
+one_class_only = True
 
 skip_folds = []
-selected_class = ['D']
+skip_class = []
 
 ml_utils.print_available_device()
 config.make_dirs()
@@ -98,7 +102,7 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
         for class_id in train_dataset.get_classes():
 
-            if not class_id in selected_class and one_class_only:
+            if class_id in skip_class:
                 continue
 
             model_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.MODEL)
@@ -107,12 +111,14 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
             os.makedirs(output_dir, exist_ok=True)
 
             trainer_file = os.path.join(model_dir, f'{class_id}_model.plk')
-            training_loss_file = os.path.join(model_dir, f'{class_id}_loss_history.png')
+            training_gen_loss_file = os.path.join(model_dir, f'{class_id}_gen_loss_history.png')
+            training_disc_loss_file = os.path.join(model_dir, f'{class_id}_disc_loss_history.png')
+            training_disc_spe_loss_file = os.path.join(model_dir, f'{class_id}_disc_spe_loss_history.png')
             training_sample_mp4 = os.path.join(model_dir, f'{class_id}_sample.mp4')
 
             if train:
 
-                if os.path.exists(trainer_file) and not one_class_only:
+                if os.path.exists(trainer_file):
                     continue
 
                 # train.set_specialist_class(class_id)
@@ -132,28 +138,46 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
 
                 errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
 
+                print(errors[-1,:])
+
                 trainer.save(trainer_file)
 
-                batchs = range(1, errors.shape[0] + 1)
+                epochs = range(1, errors.shape[0] + 1)
+
                 plt.figure(figsize=(10, 6))
-                plt.plot(batchs, errors[:,0], label='Discriminator Real Error')
-                plt.plot(batchs, errors[:,1], label='Discriminator Fake Error')
-                plt.plot(batchs, errors[:,2], label='Generator Error')
-                if errors.shape[1] >= 5:
-                    plt.plot(batchs, errors[:,3], label='Discriminator(Bin) Real Error')
-                    plt.plot(batchs, errors[:,4], label='Discriminator(Bin) Fake Error')
-                plt.xlabel('Batchs')
+                plt.plot(epochs, errors[:,2], label='Generator Error')
+                plt.xlabel('epochs')
                 plt.ylabel('Error')
-                plt.yscale('log')
+                plt.title('Generator and Discriminator Errors per Batch')
+                plt.grid(True)
+                plt.savefig(training_gen_loss_file)
+                plt.close()
+
+                plt.figure(figsize=(10, 6))
+                plt.plot(epochs, errors[:,0], label='Discriminator Real Error')
+                plt.plot(epochs, errors[:,1], label='Discriminator Fake Error')
+                plt.xlabel('epochs')
+                plt.ylabel('Error')
                 plt.title('Generator and Discriminator Errors per Epoch')
                 plt.legend()
                 plt.grid(True)
-                plt.savefig(training_loss_file)
+                plt.savefig(training_disc_loss_file)
                 plt.close()
+
+                if errors.shape[1] >= 5:
+                    plt.figure(figsize=(10, 6))
+                    plt.plot(epochs, errors[:,3], label='Discriminator(Bin) Real Error')
+                    plt.plot(epochs, errors[:,4], label='Discriminator(Bin) Fake Error')
+                    plt.xlabel('epochs')
+                    plt.ylabel('Error')
+                    plt.legend()
+                    plt.grid(True)
+                    plt.savefig(training_disc_spe_loss_file)
+                    plt.close()
 
             if evaluate:
 
-                if not os.path.exists(trainer_file) and not one_class_only:
+                if not os.path.exists(trainer_file):
                     continue
 
                 trainer = ml_model.Serializable.load(trainer_file)

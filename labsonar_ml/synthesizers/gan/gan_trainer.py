@@ -30,7 +30,7 @@ class Gan_trainer(ml_train.Base_trainer):
                  lr: float = 2e-4,
                  n_epochs: int = 100,
                  batch_size: int = 32,
-                 n_d=1,
+                 n_d=10,
                  n_g=1,
                  bins=[],
                  alternate_training = True,
@@ -40,7 +40,7 @@ class Gan_trainer(ml_train.Base_trainer):
         super().__init__(n_epochs, batch_size)
 
         self.type = type
-        self.loss_func = loss_func if loss_func is not None else torch.nn.BCELoss(reduction='sum')
+        self.loss_func = loss_func if loss_func is not None else torch.nn.BCELoss(reduction='mean')
         self.lr = lr
         self.latent_space_dim = latent_space_dim
         self.device = ml_utils.get_available_device()
@@ -65,13 +65,18 @@ class Gan_trainer(ml_train.Base_trainer):
         real_loss = self.loss_func(real_pred, ml_utils.make_targets(n_samples, 1, self.device))
         real_loss.backward()
 
+        real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
+
         fake_pred = self.d_model(fake_data)
-        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
+        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 1, self.device))*-1
         fake_loss.backward()
+
+        fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
 
         self.d_optimizador.step()
 
-        return real_loss.tolist(), fake_loss.tolist()
+        return real_erros/n_samples, fake_erros/n_samples
+        # return real_loss.tolist(), fake_loss.tolist()
     
     def discriminator_bin_step(self, real_data, fake_data) -> float:
         n_samples = real_data.size(0)
@@ -89,14 +94,17 @@ class Gan_trainer(ml_train.Base_trainer):
         real_pred = self.d2_model(r_data)
         real_loss = self.loss_func(real_pred, ml_utils.make_targets(n_samples, 1, self.device))
         real_loss.backward()
+        real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
 
         fake_pred = self.d2_model(f_data)
-        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
+        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 1, self.device))*-1
         fake_loss.backward()
+        fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
 
         self.d2_optimizador.step()
 
-        return real_loss.tolist(), fake_loss.tolist()
+        return real_erros/n_samples, fake_erros/n_samples
+        # return real_loss.tolist(), fake_loss.tolist()
 
     def discriminator_y_bin_step(self, real_data, fake_data) -> float:
         n_samples = real_data.size(0)
@@ -135,9 +143,12 @@ class Gan_trainer(ml_train.Base_trainer):
         loss = self.loss_func(pred, ml_utils.make_targets(n_samples, 1, self.device))
         loss.backward()
 
+        fake_erros = np.sum(pred.detach().cpu().numpy()<0.5)
+
         self.g_optimizador.step()
 
-        return loss.tolist()
+        return fake_erros/n_samples
+        # return loss.tolist()
 
     def generator_bin_step(self, real_data, fake_data) -> float:
         n_samples = real_data.size(0)
@@ -151,7 +162,7 @@ class Gan_trainer(ml_train.Base_trainer):
 
         pred = self.d2_model(f_data)
 
-        loss = self.loss_func(pred, ml_utils.make_targets(n_samples, 1, self.device))
+        loss = self.loss_func(pred, ml_utils.make_targets(n_samples, 1, self.device)) * self.lr_factor
         loss.backward()
 
         self.g2_optimizador.step()
@@ -236,7 +247,7 @@ class Gan_trainer(ml_train.Base_trainer):
 
             self.d2_model = self.d2_model.to(self.device)
             self.d2_optimizador = torch.optim.Adam(self.d2_model.parameters(), lr = self.lr)
-            self.g2_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.lr * self.lr_factor)
+            self.g2_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.lr)
 
         elif self.type == Type.GAN_BIN_Y:
 
@@ -276,22 +287,26 @@ class Gan_trainer(ml_train.Base_trainer):
             d2_real_error, d2_fake_error = self.discriminator_bin_step(samples, fake_data)
 
 
-        if self.alternate_training:
-            if rand <= self.mod_chance:
-                fake_data = self.g_model.generate(n_samples, self.device)
-                fake_data = self.g_model.generate(n_samples, self.device)
-                g_error = self.generator_bin_step(samples, fake_data)
+            if self.alternate_training:
+                if rand <= self.mod_chance:
+                    fake_data = self.g_model.generate(n_samples, self.device)
+                    fake_data = self.g_model.generate(n_samples, self.device)
+                    g_error = self.generator_bin_step(samples, fake_data)
+
+                else:
+                    fake_data = self.g_model.generate(n_samples, self.device)
+                    g_error = self.generator_step(fake_data)
 
             else:
+                if rand <= self.mod_chance:
+                    fake_data = self.g_model.generate(n_samples, self.device)
+                    fake_data = self.g_model.generate(n_samples, self.device)
+                    g_error = self.generator_bin_step(samples, fake_data)
+
                 fake_data = self.g_model.generate(n_samples, self.device)
                 g_error = self.generator_step(fake_data)
 
         else:
-            if rand <= self.mod_chance:
-                fake_data = self.g_model.generate(n_samples, self.device)
-                fake_data = self.g_model.generate(n_samples, self.device)
-                g_error = self.generator_bin_step(samples, fake_data)
-
             fake_data = self.g_model.generate(n_samples, self.device)
             g_error = self.generator_step(fake_data)
 

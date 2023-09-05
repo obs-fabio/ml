@@ -16,20 +16,20 @@ import labsonar_ml.data_loader as ml_data
 import app.config as config
 
 training = config.Training.MLP_CLASSIFIER
-# source_synthetics = [config.Training.GAN, config.Training.GANSPE]
-source_synthetics = [config.Training.GANSPE]
+source_synthetics = [config.Training.GAN, config.Training.GANSPE]
+# source_synthetics = [config.Training.GANSPE]
 
 batch_size=32
 n_epochs=64
 lr=1e-3
 n_neurons=8
 
-reset=True
+reset=False
 backup=True
-train = True
-evaluate = True
+train = False
+evaluate = False
 compare = True
-one_fold_only = True
+one_fold_only = False
 one_class_only = False
 
 skip_folds = []
@@ -253,7 +253,7 @@ if compare:
 
             path, rel_filename = os.path.split(abs_filename)
             filename, extension = os.path.splitext(rel_filename)
-            cm_file = os.path.join(output_dir, "cm_" + filename + ".png")
+            cm_file = os.path.join(output_dir, f"cm_fold({i_fold})" + filename + ".png")
 
             df = pd.read_csv(abs_filename, index_col=None)
             cm, f1, recall, acc = ml_model.eval_metrics(df, class_list)

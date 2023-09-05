@@ -8,10 +8,10 @@ import labsonar_ml.utils.visualization as ml_vis
 import app.config as config
 
 trainings_dict = [
-    # {
-    #     'type': ml_gan.Type.GAN,
-    #     'dir': config.Training.GAN,
-    # },
+    {
+        'type': ml_gan.Type.GAN,
+        'dir': config.Training.GAN,
+    },
     {
         'type': ml_gan.Type.GAN_BIN,
         'dir': config.Training.GANSPE,
@@ -20,7 +20,7 @@ trainings_dict = [
 
 reset=True
 backup=True
-one_fold_only = True
+one_fold_only = False
 
 skip_folds = []
 

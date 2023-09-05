@@ -21,7 +21,6 @@ class MLP(ml_model.Base):
             torch.nn.Sigmoid(),
         )
 
-    
     def forward(self, x):
         if self.model is None:
             self.start(x.shape)
