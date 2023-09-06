@@ -16,47 +16,27 @@ trainings_dict = [
         'type': ml_gan.Type.GAN,
         'dir': config.Training.GAN,
         'batch_size': 32,
-        'n_epochs': 1024,
+        'n_epochs': 2048,
         'latent_space_dim': 128,
         'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
+        'g_lr': 2e-4,
+        'd_lr': 1e-4,
         'n_bins': 0,
-        'alternate_training': False,
-        'mod_chance': 1,
-        'lr_factor': 0.8,
+        'reg_factor': 1,
     },
-    # {
-    #     'type': ml_gan.Type.GAN_BIN,
-    #     'dir': config.Training.GANSPE,
-    #     'batch_size': 32,
-    #     'n_epochs': 10000,
-    #     'latent_space_dim': 128,
-    #     'n_samples': 256,
-    #     'lr': 2e-4,
-    #     'gen_cycles': 1,
-    #     'n_bins': 0,
-    #     'alternate_training': False,
-    #     'mod_chance': 1,
-    #     'lr_factor': 0.8,
-    # }
+    {
+        'type': ml_gan.Type.GAN_BIN,
+        'dir': config.Training.GANSPE,
+        'batch_size': 32,
+        'n_epochs': 2048,
+        'latent_space_dim': 128,
+        'n_samples': 256,
+        'g_lr': 2e-4,
+        'd_lr': 1e-4,
+        'n_bins': 0,
+        'reg_factor': 1,
+    }
 ]
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 1,
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   ----  X
-# 'alternate_training': False, 'mod_chance': 0.8, 'lr_factor': 0.8,
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.6,
-# 'alternate_training': True, 'mod_chance': 0.1, 'lr_factor': 1,
-# 'alternate_training': True, 'mod_chance': 0.05, 'lr_factor': 0.6,
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.7,
-# 'alternate_training': False, 'mod_chance': 0.7, 'lr_factor': 0.8,
-# 'alternate_training': False, 'mod_chance': 0.5, 'lr_factor': 0.6,
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   ----  X
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.9,
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.7,   ----  X
-
-
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   'latent_space_dim': 256,
-# 'alternate_training': False, 'mod_chance': 1, 'lr_factor': 0.8,   'latent_space_dim': 64,
 
 
 selections = {
@@ -75,12 +55,12 @@ for id, list_index in selections.items():
             bin_selections[id].append(i)
 
 
-reset=True
+reset=False
 backup=True
 train = True
 evaluate = True
 one_fold_only = True
-one_class_only = True
+one_class_only = False
 
 skip_folds = []
 skip_class = []
@@ -129,12 +109,10 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                 trainer = ml_gan.Gan_trainer(type = training_dict['type'],
                                             latent_space_dim = training_dict['latent_space_dim'],
                                             n_epochs = training_dict['n_epochs'],
-                                            lr = training_dict['lr'],
-                                            n_g = training_dict['gen_cycles'],
-                                            bins=selected_bins,
-                                            alternate_training = training_dict['alternate_training'],
-                                            mod_chance = training_dict['mod_chance'],
-                                            lr_factor = training_dict['lr_factor'])
+                                            g_lr = training_dict['g_lr'],
+                                            d_lr = training_dict['d_lr'],
+                                            bins = selected_bins,
+                                            reg_factor = training_dict['reg_factor'])
 
                 errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
 

@@ -27,21 +27,21 @@ class Gan_trainer(ml_train.Base_trainer):
                  type: Type,
                  latent_space_dim: int,
                  loss_func = None,
-                 lr: float = 2e-4,
+                 g_lr: float = 2e-4,
+                 d_lr: float = 2e-4,
                  n_epochs: int = 100,
                  batch_size: int = 32,
-                 n_d=10,
+                 n_d=1,
                  n_g=1,
                  bins=[],
-                 alternate_training = True,
-                 mod_chance = 1,
-                 lr_factor = 1,
+                 reg_factor = 1,
                  ):
         super().__init__(n_epochs, batch_size)
 
         self.type = type
         self.loss_func = loss_func if loss_func is not None else torch.nn.BCELoss(reduction='mean')
-        self.lr = lr
+        self.g_lr = g_lr
+        self.d_lr = d_lr
         self.latent_space_dim = latent_space_dim
         self.device = ml_utils.get_available_device()
         self.image_dim = None
@@ -49,10 +49,7 @@ class Gan_trainer(ml_train.Base_trainer):
         self.n_g = n_g
 
         self.bins = bins
-
-        self.alternate_training = alternate_training
-        self.mod_chance = mod_chance
-        self.lr_factor = lr_factor
+        self.reg_factor = reg_factor
 
     def discriminator_step(self, real_data, fake_data) -> float:
         n_samples = real_data.size(0)
@@ -68,7 +65,7 @@ class Gan_trainer(ml_train.Base_trainer):
         real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
 
         fake_pred = self.d_model(fake_data)
-        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 1, self.device))*-1
+        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
         fake_loss.backward()
 
         fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
@@ -97,7 +94,7 @@ class Gan_trainer(ml_train.Base_trainer):
         real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
 
         fake_pred = self.d2_model(f_data)
-        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 1, self.device))*-1
+        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
         fake_loss.backward()
         fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
 
@@ -156,16 +153,16 @@ class Gan_trainer(ml_train.Base_trainer):
         f_data = fake_data.reshape(*real_data.shape)
         f_data = torch.autograd.variable.Variable(f_data[:, :, self.bins, :].reshape(n_samples, -1))
 
-        self.g2_optimizador.zero_grad()
+        self.g_optimizador.zero_grad()
 
         f_data = f_data.to(self.device)
 
         pred = self.d2_model(f_data)
 
-        loss = self.loss_func(pred, ml_utils.make_targets(n_samples, 1, self.device)) * self.lr_factor
+        loss = self.loss_func(pred, ml_utils.make_targets(n_samples, 1, self.device)) * self.reg_factor
         loss.backward()
 
-        self.g2_optimizador.step()
+        self.g_optimizador.step()
 
         return loss.tolist()
 
@@ -246,8 +243,7 @@ class Gan_trainer(ml_train.Base_trainer):
             # self.d2_model = ml_mlp.MLP(input_shape=(d2_dim,1), n_neurons=10)
 
             self.d2_model = self.d2_model.to(self.device)
-            self.d2_optimizador = torch.optim.Adam(self.d2_model.parameters(), lr = self.lr)
-            self.g2_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.lr)
+            self.d2_optimizador = torch.optim.Adam(self.d2_model.parameters(), lr = self.d_lr)
 
         elif self.type == Type.GAN_BIN_Y:
 
@@ -267,8 +263,8 @@ class Gan_trainer(ml_train.Base_trainer):
 
         self.g_model = self.g_model.to(self.device)
         self.d_model = self.d_model.to(self.device)
-        self.g_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.lr)
-        self.d_optimizador = torch.optim.Adam(self.d_model.parameters(), lr = self.lr)
+        self.g_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.g_lr)
+        self.d_optimizador = torch.optim.Adam(self.d_model.parameters(), lr = self.d_lr)
 
     @overrides
     def train_step(self, samples, rand) -> np.ndarray:
@@ -286,25 +282,9 @@ class Gan_trainer(ml_train.Base_trainer):
         if self.type == Type.GAN_BIN:
             d2_real_error, d2_fake_error = self.discriminator_bin_step(samples, fake_data)
 
-
-            if self.alternate_training:
-                if rand <= self.mod_chance:
-                    fake_data = self.g_model.generate(n_samples, self.device)
-                    fake_data = self.g_model.generate(n_samples, self.device)
-                    g_error = self.generator_bin_step(samples, fake_data)
-
-                else:
-                    fake_data = self.g_model.generate(n_samples, self.device)
-                    g_error = self.generator_step(fake_data)
-
-            else:
-                if rand <= self.mod_chance:
-                    fake_data = self.g_model.generate(n_samples, self.device)
-                    fake_data = self.g_model.generate(n_samples, self.device)
-                    g_error = self.generator_bin_step(samples, fake_data)
-
-                fake_data = self.g_model.generate(n_samples, self.device)
-                g_error = self.generator_step(fake_data)
+            fake_data = self.g_model.generate(n_samples, self.device)
+            g_error = self.generator_bin_step(samples, fake_data)
+            g_error = self.generator_step(fake_data)
 
         else:
             fake_data = self.g_model.generate(n_samples, self.device)

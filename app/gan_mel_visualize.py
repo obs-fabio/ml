@@ -18,9 +18,9 @@ trainings_dict = [
     }
 ]
 
-reset=True
+reset=False
 backup=True
-one_fold_only = False
+one_fold_only = True
 
 skip_folds = []
 

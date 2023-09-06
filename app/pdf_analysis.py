@@ -36,9 +36,9 @@ for id, list_index in selections.items():
 
 reset=True
 backup=True
-one_fold_only = True
-one_class_only = True
-plot_all = True
+one_fold_only = False
+one_class_only = False
+plot_all = False
 
 skip_folds = []
 skip_class = []
@@ -73,7 +73,12 @@ for class_id in ['A', 'B', 'C', 'D']:
 	if class_id in skip_class:
 		continue
 
-	kl_mean = []
+	fold_kl_divergence = []
+	fold_kl_gan = []
+	fold_kl_ganspe = []
+	fold_data_real = []
+	fold_data_gan = []
+	fold_data_ganspe = []
 
 	for i_fold, (train_dataset, val_dataset, test_dataset) in enumerate(config.get_dataset_loro()):
 
@@ -140,24 +145,24 @@ for class_id in ['A', 'B', 'C', 'D']:
 			real_bin_value, real_bin_edge, real_bin_patchs = plt.hist(real, bins=bins, density=True)
 			if plot_all:
 				plt.savefig(os.path.join(output_dir,f'pdf_{class_id}_{i_fold}_{bin}_real.png'))
-			plt.close()
+			# plt.close()
 			
 			gan_bin_value, gan_bin_edge, gan_bin_patchs = plt.hist(gan, bins=bins, density=True)
 			if plot_all:
 				plt.savefig(os.path.join(output_dir,f'pdf_{class_id}_{i_fold}_{bin}_gan.png'))
-			plt.close()
+			# plt.close()
 			
 			ganspe_bin_value, ganspe_bin_edge, ganspe_bin_patchs = plt.hist(ganspe, bins=bins, density=True)
-			if plot_all:
-				plt.savefig(os.path.join(output_dir,f'pdf_{class_id}_{i_fold}_{bin}_ganspe.png'))
+			# if plot_all:
+			# 	plt.savefig(os.path.join(output_dir,f'pdf_{class_id}_{i_fold}_{bin}_ganspe.png'))
 			plt.close()
 
-			if plot_all:
-				plt.hist(real, bins=bins, density=True, color='blue', alpha=0.3)
-				plt.hist(gan, bins=bins, density=True, color='red', alpha=0.3)
-				plt.hist(ganspe, bins=bins, density=True, color='green', alpha=0.3)
-				plt.savefig(os.path.join(output_dir,f'pdf_{class_id}_{i_fold}_{bin}.png'))
-				plt.close()
+			# if plot_all:
+			# 	plt.hist(real, bins=bins, density=True, color='blue', alpha=0.2)
+			# 	plt.hist(gan, bins=bins, density=True, color='red', alpha=0.2)
+			# 	plt.hist(ganspe, bins=bins, density=True, color='green', alpha=0.2)
+			# 	plt.savefig(os.path.join(output_dir,f'pdf_{class_id}_{i_fold}_{bin}.png'))
+			# 	plt.close()
 
 			def kl_divergence_func(p, q):
 				result = np.zeros_like(p)
@@ -231,7 +236,7 @@ for class_id in ['A', 'B', 'C', 'D']:
 
 		ax3.plot(kl_x, kl_divergence, label = "norm")
 		ax3.axhline(1, color='red', linestyle='--')
-		ax3.set_ylim([-1,2])
+		ax3.set_ylim([0,2])
 		ax3.legend()
 
 		y1 = [np.min(real_data_mean[kl_x]),np.max(real_data_mean[kl_x])]
@@ -248,48 +253,80 @@ for class_id in ['A', 'B', 'C', 'D']:
 		plt.savefig(os.path.join(output_dir,f'pdf3_{class_id}_{i_fold}.png'))
 		plt.close()
 
+		fold_kl_divergence.append(kl_divergence)
+		fold_kl_gan.append(kl_gan)
+		fold_kl_ganspe.append(kl_ganspe)
+		fold_data_real.append(real_data_mean)
+		fold_data_gan.append(gan_data_mean)
+		fold_data_ganspe.append(ganspe_data_mean)
 
-		# kl_divergence = np.nan_to_num(kl_divergence, nan=0.0)
-		# kl_mean.append(kl_divergence)
-
-		# plt.plot(kl_x, kl_divergence)
-		# max = np.max(kl_divergence)
-		# min = np.min(kl_divergence)
-		# y = range(int(min),int(max+1))
-		# for selected_range in selections[class_id]:
-		# 	plt.fill_betweenx(y, selected_range[0], selected_range[-1], color='red', alpha=0.2)
-
-		# plt.axhline(1, color='red', linestyle='--')
-			
-		# plt.xlabel('Bin')
-		# plt.ylabel('Normalize KL divergence')
-		# plt.title(f'{class_id}_{i_fold}')
-		# plt.savefig(os.path.join(output_dir,f'{class_id}_{i_fold}.png'))
-		# plt.close()
 
 		if one_fold_only:
 			break
 
-	# kl_mean = np.array(kl_mean)
-	# class_means[class_id] = f"{np.mean(kl_mean.reshape(-1))}+-{np.std(kl_mean.reshape(-1))}"
-	# bins_means[class_id] = f"{np.mean(kl_mean[:,bin_selections[class_id]].reshape(-1))}+-{np.std(kl_mean[:,bin_selections[class_id]].reshape(-1))}"
+	fold_kl_divergence.append(kl_divergence)
+	fold_kl_gan.append(kl_gan)
+	fold_kl_ganspe.append(kl_ganspe)
+	fold_data_real.append(real_data_mean)
+	fold_data_gan.append(gan_data_mean)
+	fold_data_ganspe.append(ganspe_data_mean)
 
-	# kl = np.mean(kl_mean, axis=0)
+	fold_kl_divergence = np.array(fold_kl_divergence)
+	fold_kl_gan = np.array(fold_kl_gan)
+	fold_kl_ganspe = np.array(fold_kl_ganspe)
+	fold_data_real = np.array(fold_data_real)
+	fold_data_gan = np.array(fold_data_gan)
+	fold_data_ganspe = np.array(fold_data_ganspe)
 
-	# max = np.max(kl)
-	# min = np.min(kl)
-	# y = range(int(min),int(max+1))
-	# plt.plot(kl_x, kl)
-	# for selected_range in selections[class_id]:
-	# 	plt.fill_betweenx(y, selected_range[0], selected_range[-1], color='red', alpha=0.2)
+	fold_kl_divergence = np.mean(fold_kl_divergence, axis=0)
+	fold_kl_gan = np.mean(fold_kl_gan, axis=0)
+	fold_kl_ganspe = np.mean(fold_kl_ganspe, axis=0)
+	fold_data_real = np.mean(fold_data_real, axis=0)
+	fold_data_gan = np.mean(fold_data_gan, axis=0)
+	fold_data_ganspe = np.mean(fold_data_ganspe, axis=0)
 
-	# plt.axhline(1, color='red', linestyle='--')
+	fig = plt.figure()
+	ax1 = plt.subplot2grid((4, 1), (0, 0), rowspan=2)
+	ax2 = plt.subplot2grid((4, 1), (2, 0))
+	ax3 = plt.subplot2grid((4, 1), (3, 0))
 
-	# plt.xlabel('Bin')
-	# plt.ylabel('Normalize KL divergence')
-	# plt.title(f'{class_id}')
-	# plt.savefig(os.path.join(output_dir,f'{class_id}.png'))
-	# plt.close()
+	x = range(128)
+
+	ax1.plot(kl_x, fold_data_real[kl_x], color='blue', label="real")
+	ax1.plot(kl_x, fold_data_gan[kl_x], color='red', label="gan")
+	ax1.plot(kl_x, fold_data_ganspe[kl_x], color='green', label="ganspe")
+	ax1.legend()
+
+	kl_gan_sum_spe = np.sum(fold_kl_gan[bin_selections[class_id]])
+	kl_ganspe_sum_spe = np.sum(fold_kl_ganspe[bin_selections[class_id]])
+	kl_factor_spe = kl_ganspe_sum_spe/kl_gan_sum_spe
+	
+	kl_gan_sum = np.sum(fold_kl_gan)
+	kl_ganspe_sum = np.sum(fold_kl_ganspe)
+	kl_factor = kl_ganspe_sum/kl_gan_sum
+
+	ax2.plot(kl_x, fold_kl_gan, label = "gan(%1.3f)"%(kl_gan_sum))
+	ax2.plot(kl_x, fold_kl_ganspe, label = "ganspe(%1.3f)"%(kl_ganspe_sum))
+	ax2.legend()
+
+	ax3.plot(kl_x, kl_divergence, label = "norm")
+	ax3.axhline(1, color='red', linestyle='--')
+	ax3.set_ylim([0,2])
+	ax3.legend()
+
+	y1 = [np.min(fold_data_real[kl_x]),np.max(fold_data_real[kl_x])]
+	y2 = [np.min(fold_kl_gan),np.max(fold_kl_gan)]
+	y3 = [np.min(fold_kl_divergence),np.max(fold_kl_divergence)]
+
+	for selected_range in selections[class_id]:
+		ax1.fill_betweenx(y1, selected_range[0], selected_range[-1], color='red', alpha=0.2)
+		ax2.fill_betweenx(y2, selected_range[0], selected_range[-1], color='red', alpha=0.2)
+		ax3.fill_betweenx(y3, selected_range[0], selected_range[-1], color='red', alpha=0.2)
+
+	ax1.set_title(f"{kl_factor} -> {kl_factor_spe}")
+	fig.tight_layout()
+	plt.savefig(os.path.join(output_dir,f'pdf4_{class_id}.png'))
+	plt.close()
 
 	if one_class_only:
 		break
