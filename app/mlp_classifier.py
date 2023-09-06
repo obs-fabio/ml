@@ -18,14 +18,14 @@ import app.config as config
 source_model = config.Training.GAN
 # trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP_SYNTHETIC, config.Training.CLASSIFIER_MLP_JOINT]
 trainings = [config.Training.CLASSIFIER_MLP_REAL, config.Training.CLASSIFIER_MLP_SYNTHETIC]
-source_synthetics = [config.Training.GAN]
+source_synthetics = [config.Training.GAN, config.Training.GANBIN_10, config.Training.GANBIN_20, config.Training.GANBIN_30, config.Training.GANBIN_Y]
 
 batch_size=32
 n_epochs=128
 lr=1e-3
 
 reset=True
-backup=False
+backup=True
 train = True
 evaluate = True
 compare = True

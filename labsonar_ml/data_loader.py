@@ -24,6 +24,8 @@ class Base_dataset (torch_data.Dataset):
         self._runs = runs
         self.transform = transform
         self.specialist_class = None
+        self.x_relevance = None
+        self.y_relevance = None
 
     def __len__(self):
         return len(self._samples)
@@ -31,6 +33,10 @@ class Base_dataset (torch_data.Dataset):
     def __getitem__(self, idx):
         image_path, class_id, _ = self._samples[idx]
         image = read_image(image_path, self.transform)
+        if self.y_relevance is not None:
+            image[:,:,self.y_relevance] = torch.zeros_like(image[:,:,self.y_relevance])
+        if self.x_relevance is not None:
+            image[:,self.x_relevance,:] = torch.zeros_like(image[:,self.x_relevance,:])
         return image, self._classes.index(class_id)
 
     def get_classes(self):
@@ -53,6 +59,10 @@ class Base_dataset (torch_data.Dataset):
                 samples.append([image_path, _class_id, _run_id])
 
         return Base_dataset(samples, [class_id], self.get_runs(class_id), self.transform)
+
+    def set_relevance_analisys(self, x_relevance: int = None, y_relevance: int = None):
+        self.x_relevance = x_relevance
+        self.y_relevance = y_relevance
 
 
 class Dataset_manager (Base_dataset):

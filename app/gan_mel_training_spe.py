@@ -19,75 +19,51 @@ trainings_dict = [
         'n_epochs': 2048,
         'latent_space_dim': 128,
         'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 0
+        'g_lr': 2e-4,
+        'd_lr': 1e-4,
+        'n_bins': 0,
+        'reg_factor': 1,
     },
     {
         'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANBIN_10,
+        'dir': config.Training.GANSPE,
         'batch_size': 32,
         'n_epochs': 2048,
         'latent_space_dim': 128,
         'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 10
-    },
-    {
-        'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANBIN_20,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 20
-    },
-    {
-        'type': ml_gan.Type.GAN_BIN,
-        'dir': config.Training.GANBIN_30,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 30
-    },
-    {
-        'type': ml_gan.Type.GAN_BIN_Y,
-        'dir': config.Training.GANBIN_Y,
-        'batch_size': 32,
-        'n_epochs': 2048,
-        'latent_space_dim': 128,
-        'n_samples': 256,
-        'lr': 2e-4,
-        'gen_cycles': 1,
-        'n_bins': 0
-    },
-    # {
-    #     'type': ml_gan.Type.DCGAN,
-    #     'dir': config.Training.DCGAN,
-    #     'batch_size': 8,
-    #     'n_epochs': 2048,
-    #     'latent_space_dim': 128,
-    #     'lr': 2e-4,
-    #     'gen_cycles': 5,
-    #     'n_samples': 256,
-    # }
+        'g_lr': 2e-4,
+        'd_lr': 1e-4,
+        'n_bins': 0,
+        'reg_factor': 1,
+    }
 ]
 
 
+selections = {
+	'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
+	'B': [range(2,8), range(26,32), range(38,44), range(65,91)],
+	'C': [range(1,8), range(14,19), range(28,35), range(70,75)],
+	'D': [range(1,10), range(14,18), range(33,38), range(55,62)],
+}
+
+
+bin_selections = {}
+for id, list_index in selections.items():
+    bin_selections[id] = []
+    for list in list_index:
+        for i in list:
+            bin_selections[id].append(i)
+
+
 reset=False
-backup=False
+backup=True
 train = True
 evaluate = True
-one_fold_only = False
+one_fold_only = True
 one_class_only = False
 
 skip_folds = []
+skip_class = []
 
 ml_utils.print_available_device()
 config.make_dirs()
@@ -104,11 +80,10 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
         if i_fold in skip_folds:
             continue
 
-        bin_dir = config.get_result_dir(i_fold, config.Training.BASELINE, config.Artifacts.OUTPUT)
-        bin_files = os.path.join(bin_dir, f"baseline_f1.txt")
-        bin_indexes = np.loadtxt(bin_files, dtype=int)
-
         for class_id in train_dataset.get_classes():
+
+            if class_id in skip_class:
+                continue
 
             model_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.MODEL)
             output_dir = config.get_result_dir(i_fold, training_dict['dir'], config.Artifacts.OUTPUT)
@@ -116,7 +91,9 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
             os.makedirs(output_dir, exist_ok=True)
 
             trainer_file = os.path.join(model_dir, f'{class_id}_model.plk')
-            training_loss_file = os.path.join(model_dir, f'{class_id}_loss_history.png')
+            training_gen_loss_file = os.path.join(model_dir, f'{class_id}_gen_loss_history.png')
+            training_disc_loss_file = os.path.join(model_dir, f'{class_id}_disc_loss_history.png')
+            training_disc_spe_loss_file = os.path.join(model_dir, f'{class_id}_disc_spe_loss_history.png')
             training_sample_mp4 = os.path.join(model_dir, f'{class_id}_sample.mp4')
 
             if train:
@@ -127,37 +104,54 @@ for training_dict in tqdm.tqdm(trainings_dict, desc="Tipos"):
                 # train.set_specialist_class(class_id)
                 class_train_dataset = train_dataset.filt_dataset(class_id)
 
-                if training_dict['n_bins'] == 0:
-                    selected_bins = None
-                else:
-                    selected_bins = bin_indexes[:training_dict['n_bins']]
+                selected_bins = bin_selections[class_id]
 
                 trainer = ml_gan.Gan_trainer(type = training_dict['type'],
                                             latent_space_dim = training_dict['latent_space_dim'],
                                             n_epochs = training_dict['n_epochs'],
-                                            lr = training_dict['lr'],
-                                            n_g = training_dict['gen_cycles'],
-                                            bins=selected_bins)
+                                            g_lr = training_dict['g_lr'],
+                                            d_lr = training_dict['d_lr'],
+                                            bins = selected_bins,
+                                            reg_factor = training_dict['reg_factor'])
+
                 errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
+
+                print(errors[-1,:])
 
                 trainer.save(trainer_file)
 
-                batchs = range(1, errors.shape[0] + 1)
+                epochs = range(1, errors.shape[0] + 1)
+
                 plt.figure(figsize=(10, 6))
-                plt.plot(batchs, errors[:,0], label='Discriminator Real Error')
-                plt.plot(batchs, errors[:,1], label='Discriminator Fake Error')
-                plt.plot(batchs, errors[:,2], label='Generator Error')
-                if errors.shape[1] >= 5:
-                    plt.plot(batchs, errors[:,3], label='Discriminator(Bin) Real Error')
-                    plt.plot(batchs, errors[:,4], label='Discriminator(Bin) Fake Error')
-                plt.xlabel('Batchs')
+                plt.plot(epochs, errors[:,2], label='Generator Error')
+                plt.xlabel('epochs')
                 plt.ylabel('Error')
-                plt.yscale('log')
+                plt.title('Generator and Discriminator Errors per Batch')
+                plt.grid(True)
+                plt.savefig(training_gen_loss_file)
+                plt.close()
+
+                plt.figure(figsize=(10, 6))
+                plt.plot(epochs, errors[:,0], label='Discriminator Real Error')
+                plt.plot(epochs, errors[:,1], label='Discriminator Fake Error')
+                plt.xlabel('epochs')
+                plt.ylabel('Error')
                 plt.title('Generator and Discriminator Errors per Epoch')
                 plt.legend()
                 plt.grid(True)
-                plt.savefig(training_loss_file)
+                plt.savefig(training_disc_loss_file)
                 plt.close()
+
+                if errors.shape[1] >= 5:
+                    plt.figure(figsize=(10, 6))
+                    plt.plot(epochs, errors[:,3], label='Discriminator(Bin) Real Error')
+                    plt.plot(epochs, errors[:,4], label='Discriminator(Bin) Fake Error')
+                    plt.xlabel('epochs')
+                    plt.ylabel('Error')
+                    plt.legend()
+                    plt.grid(True)
+                    plt.savefig(training_disc_spe_loss_file)
+                    plt.close()
 
             if evaluate:
 

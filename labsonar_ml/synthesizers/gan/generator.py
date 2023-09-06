@@ -54,7 +54,7 @@ class DCGAN(Generator):
         self.latent_dim = latent_dim
         self.feature_dim = feature_dim
 
-        initial_layer_size = 16
+        initial_layer_size = 8
         num_layers = int(round(math.log2(feature_dim)-math.log2(initial_layer_size)-1)) # aumentar initial_layer_size-> feature_dim/2 - considerando seguidas multiplicações por 2
 
         # input is batch_size x (latent_dim x 1 x 1)
@@ -91,38 +91,51 @@ class DCGAN(Generator):
         # return torch.randn(n_samples, self.latent_dim, 1, 1, device=device).clone().detach()
 
 
-# class DCGAN(Generator):
+class DCGAN2(Generator):
 
-#     def __init__(self, n_channels: int, latent_dim: int, feature_dim: int):
-#         super().__init__()
-#         self.n_channels = n_channels
-#         self.latent_dim = latent_dim
-#         self.feature_dim = feature_dim
+    def __init__(self, n_channels: int, latent_dim: int, feature_dim: int):
+        super().__init__()
+        self.n_channels = n_channels
+        self.latent_dim = latent_dim
+        self.feature_dim = feature_dim
 
-#         self.init_size = feature_dim // 4
-#         self.l1 = torch.nn.Sequential(torch.nn.Linear(latent_dim, 128 * self.init_size ** 2))
+        self.step1 = torch.nn.Sequential(
+            torch.nn.Linear(latent_dim, (self.feature_dim//8)**2 * (self.feature_dim//32)),
+            torch.nn.LeakyReLU(),
+            torch.nn.Tanh(),
+            torch.nn.Unflatten(1,(self.feature_dim // 8, self.feature_dim // 32, self.feature_dim // 8))
+        )
 
-#         self.conv_blocks = torch.nn.Sequential(
-#             torch.nn.BatchNorm2d(128),
-#             torch.nn.Upsample(scale_factor=2),
-#             torch.nn.Conv2d(128, 128, 3, stride=1, padding=1),
-#             torch.nn.BatchNorm2d(128, 0.8),
-#             torch.nn.LeakyReLU(0.2, inplace=True),
-#             torch.nn.Upsample(scale_factor=2),
-#             torch.nn.Conv2d(128, 64, 3, stride=1, padding=1),
-#             torch.nn.BatchNorm2d(64, 0.8),
-#             torch.nn.LeakyReLU(0.2, inplace=True),
-#             torch.nn.Conv2d(64, n_channels, 3, stride=1, padding=1),
-#             torch.nn.Tanh(),
-#         )
+        self.step2 = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(self.feature_dim // 8, self.feature_dim//2, (8, 4), (4, 2), (2, 1), bias=False),
+            torch.nn.BatchNorm2d(self.feature_dim//2),
+            torch.nn.ReLU(True),
+        )
 
-#     def forward(self, z):
-#         out = self.l1(z)
-#         out = out.view(out.shape[0], 128, self.init_size, self.init_size)
-#         img = self.conv_blocks(out)
-#         return img
+        self.step3 = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(self.feature_dim // 2, self.n_channels, (16, 8), (8, 4), (4, 2), bias=False),
+            torch.nn.Tanh()
+        )
 
-#     @overrides
-#     def make_noise(self, n_samples: int, device):
-#         return torch.autograd.variable.Variable(torch.randn(n_samples, self.latent_dim, 1, 1)).to(device)
-#         # return torch.randn(n_samples, self.latent_dim, 1, 1, device=device).clone().detach()
+        # self.step2 = torch.nn.Sequential(
+        #     torch.nn.ConvTranspose2d(self.feature_dim, self.n_channels, 4, 2, 1, bias=False),
+        #     torch.nn.Tanh()
+        # )
+
+        # self.step3 = torch.nn.Sequential(
+        #     torch.nn.ConvTranspose2d(self.feature_dim, self.n_channels, 4, 2, 1, bias=False),
+        #     torch.nn.Tanh()
+        # )
+
+
+    def forward(self, x):
+        x = self.step1(x)
+        x = self.step2(x)
+        x = self.step3(x)
+        return x
+
+    @overrides
+    def make_noise(self, n_samples: int, device):
+        return torch.autograd.variable.Variable(torch.randn(n_samples, self.latent_dim)).to(device)
+        # return torch.randn(n_samples, self.latent_dim, 1, 1, device=device).clone().detach()
+

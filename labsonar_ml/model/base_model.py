@@ -4,6 +4,8 @@ import tqdm
 import typing
 import numpy as np
 import pandas as pd
+import sklearn.metrics as sk_metrics
+import sklearn.utils.class_weight as sk_utils
 import torch.utils.data as torch_data
 
 import labsonar_ml.data_loader as ml_data
@@ -30,7 +32,6 @@ def fit_specialist_classifier(model, trainset, validationset, class_id, batch_si
     train_loader = torch_data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
     validation_loader = torch_data.DataLoader(validationset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    loss_func = torch.nn.BCELoss()
 
     device = ml_utils.get_available_device()
     model.to(device)
@@ -55,6 +56,13 @@ def fit_specialist_classifier(model, trainset, validationset, class_id, batch_si
                 samples = samples.to(device)
 
             outputs = model(samples)
+
+            y = targets.cpu().numpy()
+            class_weights = sk_utils.compute_class_weight('balanced',classes=np.unique(y),y=y)
+            class_weights = torch.tensor(class_weights,dtype=torch.float)
+
+            loss_func = torch.nn.BCELoss()
+
             loss = loss_func(outputs.squeeze(1), targets)
             loss.backward()
             optimizer.step()
@@ -139,3 +147,24 @@ def eval_specialist_classifiers(classes: typing.List[str], classifiers, dataset,
 
     df = pd.DataFrame(data, columns).T
     return df
+
+def eval_metrics(dataframe, class_list):
+
+    real_columns = dataframe.columns[:4]
+    predict_columns = dataframe.columns[4:8]
+
+    real_to_index = {label: class_list[index] for index, label in enumerate(real_columns)}
+    predict_to_index = {label: class_list[index] for index, label in enumerate(predict_columns)}
+
+    dataframe['real'] = dataframe[real_columns].idxmax(axis=1)
+    dataframe['predict'] = dataframe[predict_columns].idxmax(axis=1)
+    dataframe['real'] = dataframe['real'].map(real_to_index)
+    dataframe['predict'] = dataframe['predict'].map(predict_to_index)
+
+    cm = sk_metrics.confusion_matrix(dataframe['real'], dataframe['predict'], labels=class_list)
+
+    scores = sk_metrics.classification_report(dataframe['real'], dataframe['predict'], labels=class_list, output_dict=True)
+    accuracy = sk_metrics.accuracy_score(dataframe['real'], dataframe['predict'])
+
+    scores = scores['weighted avg']
+    return cm, scores['f1-score'], scores['recall'], accuracy
