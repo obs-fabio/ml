@@ -20,7 +20,7 @@ trainings_dict = [
 
 reset=False
 backup=True
-one_fold_only = True
+one_fold_only = False
 
 skip_folds = []
 

@@ -20,14 +20,14 @@ source_synthetics = [config.Training.GAN, config.Training.GANSPE]
 # source_synthetics = [config.Training.GANSPE]
 
 batch_size=32
-n_epochs=64
+n_epochs=128
 lr=1e-3
 n_neurons=8
 
 reset=False
 backup=True
-train = False
-evaluate = False
+train = True
+evaluate = True
 compare = True
 one_fold_only = False
 one_class_only = False

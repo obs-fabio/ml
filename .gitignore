@@ -1,5 +1,6 @@
 *result*
 data
+bash_history
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -20,7 +20,7 @@ trainings_dict = [
         'latent_space_dim': 128,
         'n_samples': 256,
         'g_lr': 2e-4,
-        'd_lr': 1e-4,
+        'd_lr': 2e-4,
         'n_bins': 0,
         'reg_factor': 1,
     },
@@ -32,12 +32,11 @@ trainings_dict = [
         'latent_space_dim': 128,
         'n_samples': 256,
         'g_lr': 2e-4,
-        'd_lr': 1e-4,
+        'd_lr': 2e-4,
         'n_bins': 0,
         'reg_factor': 1,
     }
 ]
-
 
 selections = {
 	'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
@@ -59,7 +58,7 @@ reset=False
 backup=True
 train = True
 evaluate = True
-one_fold_only = True
+one_fold_only = False
 one_class_only = False
 
 skip_folds = []
