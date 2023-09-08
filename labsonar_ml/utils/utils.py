@@ -1,15 +1,11 @@
 import os
 import datetime
 import shutil
-import numpy as np
+import typing
 import torch
-import torchvision
-import torch.utils.data as torch_data
-
-import labsonar_ml.data_loader as ml_data
 
 
-def get_available_device():
+def get_available_device() -> typing.Union[str, torch.device]:
 	return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def print_available_device():
@@ -19,6 +15,7 @@ def print_available_device():
 	else:
 		print("No GPU available, using CPU.")
 
+
 def has_files(directory: str) -> bool:
 	for root, _, files in os.walk(directory):
 		for file in files:
@@ -26,7 +23,7 @@ def has_files(directory: str) -> bool:
 				return True
 	return False
 
-def get_files(directory: str, extension: str):
+def get_files(directory: str, extension: str) -> typing.List[str]:
 	file_list = []
 	for root, _, files in os.walk(directory):
 		for file in files:
@@ -34,16 +31,12 @@ def get_files(directory: str, extension: str):
 				file_list.append(os.path.join(root, file))
 	return sorted(file_list)
 
-def images_to_vectors(images):
-	return images.view(images.size(0), -1)
 
-def vectors_to_images(vectors, image_dim):
-	return vectors.view(vectors.size(0), *image_dim)
-
-def make_targets(n_samples: int, target: int, device):
+def make_targets(n_samples: int, target: int, device: typing.Union[str, torch.device]) -> torch.Tensor:
 	return torch.autograd.variable.Variable(torch.ones(n_samples, 1) * target).to(device)
 
-def prepare_train_dir(basepath: str, backup=True):
+
+def prepare_train_dir(basepath: str, backup: bool = True):
 
 	if backup:
 		os.makedirs(basepath, exist_ok=True)
@@ -67,23 +60,3 @@ def prepare_train_dir(basepath: str, backup=True):
 		if os.path.exists(basepath):
 			shutil.rmtree(basepath)
 		os.makedirs(basepath, exist_ok=True)
-
-def get_mnist_dataset_as_specialist(datapath: str = "data/", specialist_class_number: int = 1):
-	transform = torchvision.transforms.Compose([
-									torchvision.transforms.Resize(128, antialias=True),
-									torchvision.transforms.ToTensor(),
-									torchvision.transforms.Normalize((0.5,), (0.5,))])
-	
-	train = torchvision.datasets.MNIST(root=datapath, train=True, download=True, transform=transform)
-	
-	targets_idx = train.targets.detach().clone() == specialist_class_number
-
-	return torch_data.dataset.Subset(train, np.where(targets_idx)[0])
-
-def read_images(files, transform = None):
-    images = []
-    for file in files:
-        image = ml_data.read_image(file, transform)
-        image = image.view(-1)
-        images.append(image.tolist())
-    return np.array(images)

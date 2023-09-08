@@ -1,72 +1,61 @@
 import os
 import enum
 import random
+import typing
 import numpy as np
 import torch
 
 import labsonar_ml.data_loader as ml_data
 
+base_path = "./"
+data_dir = 'data/4classes'
+result_dir = 'result'
+
 class Training(enum.Enum):
     PLOTS=0,
-    GAN=1,
-    DCGAN=2,
-    DIFUSSION=3,
-    CLASSIFIER_MLP_REAL=4,
-    CLASSIFIER_MLP_SYNTHETIC=5,
-    CLASSIFIER_MLP_JOINT=6,
-    CLASSIFIER_CNN_REAL=7,
-    CLASSIFIER_CNN_SYNTHETIC=8,
-    CLASSIFIER_CNN_JOINT=9,
-    AE_REAL=10,
-    AE_SYNTHETIC=11,
-    GANBIN=12,
-    BASELINE=13,
-    GANBIN_10=14,
-    GANBIN_20=15,
-    GANBIN_30=16,
-    GANBIN_Y=17,
-    GANSPE=18,
-    MLP_CLASSIFIER=19,
+    GAN = 1,
+    SPEC_GAN = 2,
+    CLASSIFIER=3,
 
     def __str__(self) -> str:
-        if (self == Training.CLASSIFIER_MLP_REAL) or (self == Training.CLASSIFIER_CNN_REAL) or \
-            (self == Training.CLASSIFIER_MLP_SYNTHETIC) or (self == Training.CLASSIFIER_CNN_SYNTHETIC) or \
-            (self == Training.CLASSIFIER_MLP_JOINT) or (self == Training.CLASSIFIER_CNN_JOINT):
-            return 'real'
         return self.name.lower()
 
 class Artifacts(enum.Enum):
     MODEL=0,
     OUTPUT=1,
 
-base_path = "./"
-data_dir = 'data/4classes'
-result_dir = 'result'
+    def __str__(self) -> str:
+        return self.name.lower()
 
-def get_data_dir():
+
+def get_data_dir() -> str:
     return os.path.join(base_path, data_dir)
 
-def get_result_dir(i_fold, training: Training, artifact: Artifacts = None):
-    if training == Training.PLOTS or artifact is None:
-        return os.path.join(
-            base_path,
-            result_dir,
-            *training.name.lower().split("_")
-        )
+def get_result_dir(id_training: typing.List[str], artifact: Artifacts = None, i_fold: int = None) -> str:
+    arg_list = [base_path, result_dir]
 
-    return os.path.join(
-        base_path,
-        result_dir,
-        *training.name.lower().split("_"),
-        *artifact.name.lower().split("_"),
-        "fold_" + str(i_fold),
-    )
+    if isinstance(id_training, list):
+        for id in id_training:
+            arg_list.append(str(id))
+    else:
+        arg_list.append(str(id_training))
+
+    if artifact is not None:
+        arg_list.append(str(artifact))
+
+    if i_fold is not None:
+        arg_list.append("fold_" + str(i_fold))
+
+    return os.path.join(*arg_list)
 
 def make_dirs():
     for i_fold in range(10):
         for training in Training:
-            for artifact in Artifacts:
-                os.makedirs(get_result_dir(i_fold, training, artifact), exist_ok=True)
+            if training == Training.PLOTS:
+                os.makedirs(get_result_dir(training), exist_ok=True)
+            else:
+                for artifact in Artifacts:
+                    os.makedirs(get_result_dir(training, artifact, i_fold), exist_ok=True)
 
 def get_dataset_loro():
     return ml_data.init_four_classes_dataset(get_data_dir()).get_loro()
@@ -79,9 +68,22 @@ def set_seed():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-if __name__ == "__main__":
-    for training in Training:
-        print(get_result_dir(0, training))
-        print(get_result_dir(0, training, Artifacts.MODEL))
+specialist_bin_selections = {
+	'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
+	'B': [range(2,8), range(26,32), range(38,44), range(65,91)],
+	'C': [range(1,8), range(14,19), range(28,35), range(70,75)],
+	'D': [range(1,10), range(14,18), range(33,38), range(55,62)],
+}
 
+def get_specialist_selected_bins() -> typing.Dict:
+    bin_selections = {}
+    for id, list_index in specialist_bin_selections.items():
+        bin_selections[id] = []
+        for list in list_index:
+            for i in list:
+                bin_selections[id].append(i)
+
+    return bin_selections
+
+if __name__ == "__main__":
     make_dirs()

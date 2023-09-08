@@ -1,7 +1,7 @@
 import os, tqdm
 import numpy as np
 
-import labsonar_ml.synthesizers.gan.gan_trainer as ml_gan
+import labsonar_ml.synthesizers.gan.trainer as ml_gan
 import labsonar_ml.utils.utils as ml_utils
 import labsonar_ml.data_loader as ml_data
 import labsonar_ml.utils.visualization as ml_vis

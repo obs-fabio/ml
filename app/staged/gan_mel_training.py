@@ -5,7 +5,7 @@ import torch.utils.data as torch_data
 import torchvision
 import matplotlib.pyplot as plt
 
-import labsonar_ml.synthesizers.gan.gan_trainer as ml_gan
+import labsonar_ml.synthesizers.gan.trainer as ml_gan
 import labsonar_ml.model.base_model as ml_model
 import labsonar_ml.utils.utils as ml_utils
 import labsonar_ml.data_loader as ml_data
