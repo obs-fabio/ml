@@ -47,7 +47,7 @@ def run(reset: bool = False,
 	plot_bins = [30, 50, 75, 80, 85, 90, 95]
 
 	training_dicts = []
-	for sd_reg_factor in [1]:
+	for sd_reg_factor in [1, 0.5, 0.001]:
 		training_dicts.append({
 				'dir': [config.Training.SPEC_GAN, f"{sd_reg_factor}"],
 				'plot_dir': [config.Training.PLOTS, f"{sd_reg_factor}"],
@@ -80,20 +80,16 @@ def run(reset: bool = False,
 			if i_fold in skip_folds:
 				continue
 
-
 			real_data = read_images(train_dataset.get_files(class_id=class_id, run_id=None), transform)
 			real_data = real_data.reshape(real_data.shape[-2], real_data.shape[-1])
 			real_data_mean = np.mean(real_data, axis=1)
 
+			ref_model_dir = config.get_result_dir([config.Training.SPEC_GAN, f"{0}"],
+										 artifact=config.Artifacts.OUTPUT,
+										 i_fold=i_fold)
 
-			gan_files = ml_utils.get_files(
-											directory=os.path.join(
-													config.get_result_dir(
-																config.Training.GAN,
-																artifact=config.Artifacts.OUTPUT,
-																i_fold=i_fold),
-													class_id),
-											extension="png")
+			gan_files = ml_utils.get_files(directory=os.path.join(ref_model_dir,class_id),
+								  extension="png")
 
 			gan_data = read_images(gan_files[:int(0.7*len(gan_files))], transform)
 			gan_data = gan_data.reshape(gan_data.shape[-2], gan_data.shape[-1])

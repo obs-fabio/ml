@@ -2,6 +2,8 @@ import os
 import datetime
 import shutil
 import typing
+import random
+import numpy as np
 import torch
 
 
@@ -60,3 +62,11 @@ def prepare_train_dir(basepath: str, backup: bool = True):
 		if os.path.exists(basepath):
 			shutil.rmtree(basepath)
 		os.makedirs(basepath, exist_ok=True)
+
+def set_seed():
+	seed = 42
+	random.seed(seed)
+	np.random.seed(seed)
+	torch.manual_seed(seed)
+	if torch.cuda.is_available():
+		torch.cuda.manual_seed_all(seed)

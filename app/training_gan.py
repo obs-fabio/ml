@@ -118,5 +118,5 @@ def run(reset: bool = True,
 
 if __name__ == "__main__":
     ml_utils.print_available_device()
-    config.set_seed()
+    ml_utils.set_seed()
     run()

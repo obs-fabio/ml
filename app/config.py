@@ -60,14 +60,6 @@ def make_dirs():
 def get_dataset_loro():
     return ml_data.init_four_classes_dataset(get_data_dir()).get_loro()
 
-def set_seed():
-    seed = 42
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
 specialist_bin_selections = {
 	# 'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
 	'A': [range(75,95)],

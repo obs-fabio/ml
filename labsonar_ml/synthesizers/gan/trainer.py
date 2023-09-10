@@ -152,155 +152,94 @@ class SPECGAN_trainer(GAN_trainer):
         self.sd_bins = [*sd_bins] # nao sei pq sem isso a lista vira uma tupla e nada funciona
         self.sd_reg_factor = sd_reg_factor
 
-    # @overrides
-    # def discriminator_step(self, real_data: torch.Tensor) -> typing.List[float]:
-    #     """ Realiza um passo de treinamento no discriminador
-    #     Returns:
-    #         typing.Tuple[float, float]: acurária do discriminador para amostras reais e falsas, acurária do discriminador especialista para amostras reais e falsas
-    #     """
-    #     n_samples = real_data.size(0)
-    #     fake_data = self.generate_samples(n_samples)
+    @overrides
+    def discriminator_step(self, real_data: torch.Tensor) -> typing.List[float]:
+        """ Realiza um passo de treinamento no discriminador
+        Returns:
+            typing.Tuple[float, float]: acurária do discriminador para amostras reais e falsas, acurária do discriminador especialista para amostras reais e falsas
+        """
+        n_samples = real_data.size(0)
+        fake_data = self.generate_samples(n_samples)
 
-    #     self.d_model.train()
-    #     self.d_optimizador.zero_grad()
+        real_data_filt = real_data[:, :, self.sd_bins, :].clone().detach()
+        fake_data_filt = fake_data[:, :, self.sd_bins, :].clone().detach()
 
-    #     real_data = real_data.to(self.device)
-    #     fake_data = fake_data.to(self.device)
-
-    #     real_pred = self.d_model(real_data)
-    #     real_loss = self.loss_func(real_pred, ml_utils.make_targets(n_samples, 1, self.device))
-    #     real_loss.backward()
-
-    #     fake_pred = self.d_model(fake_data)
-    #     fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
-    #     fake_loss.backward()
-
-    #     self.d_optimizador.step()
-    #     self.d_model.eval()
-
-    #     real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
-    #     fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
-
-    #     return [real_erros/n_samples, fake_erros/n_samples]
-        
-        
-        
-    #     # n_samples = real_data.size(0)
-    #     # fake_data = self.generate_samples(n_samples)
+        real_data = real_data.to(self.device)
+        fake_data = fake_data.to(self.device)
+        real_data_filt = real_data_filt.to(self.device)
+        fake_data_filt = fake_data_filt.to(self.device)
 
 
+        self.d_model.train()
+        self.d_optimizador.zero_grad()
 
-    #     # real_data_filt = real_data[:, :, self.sd_bins, :].clone().detach()
-    #     # fake_data_filt = fake_data[:, :, self.sd_bins, :].clone().detach()
+        real_pred = self.d_model(real_data)
+        real_loss = self.loss_func(real_pred, ml_utils.make_targets(n_samples, 1, self.device))
+        real_loss.backward()
 
-    #     # real_data = real_data.to(self.device)
-    #     # fake_data = fake_data.to(self.device)
-    #     # real_data_filt = real_data_filt.to(self.device)
-    #     # fake_data_filt = fake_data_filt.to(self.device)
+        fake_pred = self.d_model(fake_data)
+        fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
+        fake_loss.backward()
 
-    #     # # original discriminator
-    #     # self.d_optimizador.zero_grad()
-
-    #     # real_pred = self.d_model(real_data)
-    #     # real_loss = self.loss_func(real_pred, ml_utils.make_targets(n_samples, 1, self.device))
-
-    #     # fake_pred = self.d_model(fake_data)
-    #     # fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
-
-    #     # (real_loss + fake_loss).backward()
-
-    #     # self.d_optimizador.step()
-
-    #     # self.sd_optimizador.zero_grad()
-
-    #     # real_pred_filt = self.sd_model(real_data_filt)
-    #     # real_loss_filt = self.loss_func(real_pred_filt, ml_utils.make_targets(n_samples, 1, self.device))
-
-    #     # fake_pred_filt = self.sd_model(fake_data_filt)
-    #     # fake_loss_filt = self.loss_func(fake_pred_filt, ml_utils.make_targets(n_samples, 0, self.device))
-        
-    #     # (real_loss_filt + fake_loss_filt).backward()
-
-    #     # self.sd_optimizador.step()
-
-    #     # real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
-    #     # fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
-
-    #     # real_erros_filt = np.sum(real_pred_filt.detach().cpu().numpy()>0.5)
-    #     # fake_erros_filt = np.sum(fake_pred_filt.detach().cpu().numpy()<0.5)
-
-    #     # return [real_erros/n_samples, fake_erros/n_samples, real_erros_filt/n_samples, fake_erros_filt/n_samples]
-
-    # @overrides
-    # def generator_step(self, real_data: torch.Tensor):
-    #     # n_samples = real_data.size(0)
-    #     # fake_data = self.generate_samples(n_samples)
-
-    #     # self.g_model.train()
-    #     # self.g_optimizador.zero_grad()
-
-    #     # pred = self.d_model(fake_data)
-    #     # loss = self.loss_func(pred, ml_utils.make_targets(n_samples, 1, self.device))
-    #     # loss.backward()
-
-    #     # self.g_optimizador.step()
-    #     # self.g_model.eval()
-
-    #     n_samples = real_data.size(0)
-
-    #     fake_data = self.generate_samples(n_samples)
-    #     fake_data_filt = fake_data[:, :, self.sd_bins, :].clone().detach()
-
-    #     self.g_optimizador.zero_grad()
-
-    #     d_pred = self.d_model(fake_data)
-    #     d_loss = self.loss_func(d_pred, ml_utils.make_targets(n_samples, 1, self.device))
+        self.d_optimizador.step()
+        self.d_model.eval()
 
 
-    #     # sd_pred = self.sd_model(fake_data_filt)
-    #     # sd_loss = self.loss_func(sd_pred, ml_utils.make_targets(n_samples, 1, self.device))
+        self.sd_model.train()
+        self.sd_optimizador.zero_grad()
 
-    #     # loss = d_loss + sd_loss * self.sd_reg_factor
-    #     loss = d_loss
-    #     loss.backward()
+        real_pred_filt = self.sd_model(real_data_filt)
+        real_loss_filt = self.loss_func(real_pred_filt, ml_utils.make_targets(n_samples, 1, self.device))
+        real_loss_filt.backward()
 
-    #     self.g_optimizador.step()
+        fake_pred_filt = self.sd_model(fake_data_filt)
+        fake_loss_filt = self.loss_func(fake_pred_filt, ml_utils.make_targets(n_samples, 0, self.device))
+        fake_loss_filt.backward()
+
+        self.sd_optimizador.step()
+        self.sd_model.eval()
+
+        real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
+        fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
+
+        real_erros_filt = np.sum(real_pred_filt.detach().cpu().numpy()>0.5)
+        fake_erros_filt = np.sum(fake_pred_filt.detach().cpu().numpy()<0.5)
+
+        return [real_erros/n_samples, fake_erros/n_samples, real_erros_filt/n_samples, fake_erros_filt/n_samples]
+
+    @overrides
+    def generator_step(self, real_data: torch.Tensor):
+        n_samples = real_data.size(0)
+
+        fake_data = self.generate_samples(n_samples)
+        fake_data_filt = fake_data[:, :, self.sd_bins, :].clone().detach()
+
+        self.g_model.train()
+        self.g_optimizador.zero_grad()
+
+        d_pred = self.d_model(fake_data)
+        d_loss = self.loss_func(d_pred, ml_utils.make_targets(n_samples, 1, self.device))
+
+        sd_pred = self.sd_model(fake_data_filt)
+        sd_loss = self.loss_func(sd_pred, ml_utils.make_targets(n_samples, 1, self.device))
+
+        loss = d_loss + sd_loss * self.sd_reg_factor
+        loss.backward()
+
+        self.g_optimizador.step()
+        self.g_model.eval()
 
     @overrides
     def train_init(self, image_dim: typing.List[float]):
         super().train_init(image_dim)
 
-        # self.g_model = ml_gan.Generator_MLP(latent_dim=self.latent_space_dim,
-        #                                     data_dims=image_dim,
-        #                                     internal_dims=self.g_internal_dims)
-        # self.d_model = ml_gan.Discriminator_MLP(data_dims = image_dim,
-        #                                         internal_dims = self.d_internal_dims,
-        #                                         dropout = self.d_dropout)
-
-        # self.g_model = self.g_model.to(self.device)
-        # self.d_model = self.d_model.to(self.device)
-        # self.g_optimizador = torch.optim.Adam(self.g_model.parameters(), lr = self.g_lr)
-        # self.d_optimizador = torch.optim.Adam(self.d_model.parameters(), lr = self.d_lr)
-
-
         selected_image_dim = image_dim.copy()
         selected_image_dim[1] = len(self.sd_bins)
 
-        # self.sd_model = ml_gan.Discriminator_MLP(data_dims = [2, 2, 3],
-        #                                         internal_dims = [512, 216],
-        #                                         dropout = 0.2)
-
-        # self.model = torch.nn.Sequential(
-        #     torch.nn.Flatten(1),
-        #     torch.nn.Linear(10, 50),
-        #     torch.nn.LeakyReLU(),
-        #     torch.nn.Dropout(0.2)
-        # )
-
-        # self.sd_model = ml_gan.Discriminator_MLP(data_dims = selected_image_dim,
-        #                                         internal_dims = self.sd_internal_dims,
-        #                                         dropout = self.sd_dropout)
+        self.sd_model = ml_gan.Discriminator_MLP(data_dims = selected_image_dim,
+                                                internal_dims = self.sd_internal_dims,
+                                                dropout = self.sd_dropout)
         
-        # self.sd_model = self.sd_model.to(self.device)
-        # self.sd_optimizador = torch.optim.Adam(self.sd_model.parameters(), lr = self.sd_lr)
+        self.sd_model = self.sd_model.to(self.device)
+        self.sd_optimizador = torch.optim.Adam(self.sd_model.parameters(), lr = self.sd_lr)
 

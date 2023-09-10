@@ -34,7 +34,7 @@ training_dict = {
     'sd_reg_factor': 0,
 }
 
-sd_reg_factors = [1]
+sd_reg_factors = [1, 0.001, 0]
 
 
 def run(reset: bool = True,
@@ -56,7 +56,7 @@ def run(reset: bool = True,
             # config.make_dirs()
 
     for sd_reg_factor in tqdm.tqdm(sd_reg_factors):
-        # training_dict['sd_reg_factor'] = sd_reg_factor
+        training_dict['sd_reg_factor'] = sd_reg_factor
 
         for i_fold, (train_dataset, _, _) in tqdm.tqdm(enumerate(config.get_dataset_loro()), leave=False):
 
@@ -142,5 +142,5 @@ def run(reset: bool = True,
 
 if __name__ == "__main__":
     ml_utils.print_available_device()
-    config.set_seed()
+    ml_utils.set_seed()
     run()
