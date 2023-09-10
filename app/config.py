@@ -69,7 +69,8 @@ def set_seed():
         torch.cuda.manual_seed_all(seed)
 
 specialist_bin_selections = {
-	'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
+	# 'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
+	'A': [range(75,95)],
 	'B': [range(2,8), range(26,32), range(38,44), range(65,91)],
 	'C': [range(1,8), range(14,19), range(28,35), range(70,75)],
 	'D': [range(1,10), range(14,18), range(33,38), range(55,62)],

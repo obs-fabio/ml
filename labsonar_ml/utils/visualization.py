@@ -26,6 +26,7 @@ def export_tsne(data: np.ndarray, labels: np.ndarray, filename: str, **kwargs):
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.savefig(filename, bbox_inches='tight')
+    plt.close()
 
 def export_pca(data: np.ndarray, labels: np.ndarray, filename: str, **kwargs):
     title = kwargs.get('title', 'PCA')
@@ -46,6 +47,7 @@ def export_pca(data: np.ndarray, labels: np.ndarray, filename: str, **kwargs):
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.savefig(filename, bbox_inches='tight')
+    plt.close()
 
 def export_kernel_pca(data: np.ndarray, labels: np.ndarray, filename: str, **kwargs):
     title = kwargs.get('title', 'Kernel PCA')
@@ -67,6 +69,7 @@ def export_kernel_pca(data: np.ndarray, labels: np.ndarray, filename: str, **kwa
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.savefig(filename, bbox_inches='tight')
+    plt.close()
 
 def export(data: np.ndarray, labels: np.ndarray, output_dir: str, id: str = ""):
     export_tsne(data, labels, os.path.join(output_dir,id + "t-sne.png"))

@@ -12,9 +12,9 @@ import app.config as config
 training_dict = {
     # train properties
     'id': config.Training.GAN,
-    'n_epochs': 4096,
+    'n_epochs': 1024,
     'batch_size': 64,
-    'n_samples': 20,
+    'n_samples': 640,
     # generator properties
     'latent_space_dim': 128,
     'g_lr': 1e-3,
@@ -31,15 +31,14 @@ def run(reset: bool = True,
         backup: bool = False,
         train: bool = True,
         evaluate: bool = True,
-        one_fold_only: bool = False,
-        one_class_only: bool = False,
+        one_fold_only: bool = True,
+        one_class_only: bool = True,
         skip_folds: typing.List[int] = [],
         skip_class: typing.List[str] = [],
         ):
 
     if reset and train:
         ml_utils.prepare_train_dir(config.get_result_dir(training_dict['id']), backup=backup)
-        config.make_dirs()
 
     for i_fold, (train_dataset, _, _) in tqdm.tqdm(enumerate(config.get_dataset_loro()), leave=False):
 
@@ -54,6 +53,7 @@ def run(reset: bool = True,
             model_dir = config.get_result_dir(training_dict['id'], config.Artifacts.MODEL, i_fold)
             output_dir = config.get_result_dir(training_dict['id'], config.Artifacts.OUTPUT, i_fold)
             output_dir = os.path.join(output_dir, class_id)
+            os.makedirs(model_dir, exist_ok=True)
             os.makedirs(output_dir, exist_ok=True)
 
             trainer_file = os.path.join(model_dir, f'{class_id}_model.plk')
@@ -62,40 +62,40 @@ def run(reset: bool = True,
 
             if train:
 
-                if os.path.exists(trainer_file):
-                    continue
+                if not os.path.exists(trainer_file):
 
-                class_train_dataset = train_dataset.filt_dataset(class_id)
+                    class_train_dataset = train_dataset.filt_dataset(class_id)
 
-                trainer = ml_trainer.GAN_trainer(n_epochs = training_dict['n_epochs'],
-                                                    batch_size = training_dict['batch_size'],
-                                                    latent_space_dim = training_dict['latent_space_dim'],
-                                                    g_lr = training_dict['g_lr'],
-                                                    g_n_cycles = training_dict['g_n_cycles'],
-                                                    g_internal_dims = training_dict['g_internal_dims'],
-                                                    d_lr = training_dict['d_lr'],
-                                                    d_n_cycles = training_dict['d_n_cycles'],
-                                                    d_internal_dims = training_dict['d_internal_dims'],
-                                                    d_dropout = training_dict['d_dropout'],)
+                    trainer = ml_trainer.GAN_trainer(n_epochs = training_dict['n_epochs'],
+                                                        batch_size = training_dict['batch_size'],
+                                                        latent_space_dim = training_dict['latent_space_dim'],
+                                                        g_lr = training_dict['g_lr'],
+                                                        g_n_cycles = training_dict['g_n_cycles'],
+                                                        g_internal_dims = training_dict['g_internal_dims'],
+                                                        d_lr = training_dict['d_lr'],
+                                                        d_n_cycles = training_dict['d_n_cycles'],
+                                                        d_internal_dims = training_dict['d_internal_dims'],
+                                                        d_dropout = training_dict['d_dropout'],)
 
-                errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
-                trainer.save(trainer_file)
+                    errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
+                    trainer.save(trainer_file)
 
-                epochs = range(128)
+                    n_points = 256
 
-                plt.figure(figsize=(10, 6))
-                for i in range(errors.shape[1]):
-                    erro = errors[:,i].reshape(-1)
-                    n = training_dict['n_epochs']//128
-                    erro = erro.reshape(n, 128)
-                    erro = np.mean(erro, axis=0)
-                    plt.plot(epochs, erro, label=f'Disc Error({i})')
-                plt.xlabel('Epochs')
-                plt.ylabel('Accuracy')
-                plt.legend()
-                plt.grid(True)
-                plt.savefig(training_loss_file)
-                plt.close()
+                    plt.figure(figsize=(10, 6))
+                    for i in range(errors.shape[1]):
+                        erro = errors[:,i].reshape(-1)
+                        n = training_dict['n_epochs']//n_points
+                        erro = erro.reshape(n, n_points)
+                        erro = np.mean(erro, axis=0)
+                        epochs = range(0, training_dict['n_epochs'], n)
+                        plt.plot(epochs, erro, label=f'Disc Error({i})')
+                    plt.xlabel('Epochs')
+                    plt.ylabel('Accuracy')
+                    plt.legend()
+                    plt.grid(True)
+                    plt.savefig(training_loss_file)
+                    plt.close()
 
             if evaluate:
 
@@ -118,5 +118,5 @@ def run(reset: bool = True,
 
 if __name__ == "__main__":
     ml_utils.print_available_device()
-    config.make_dirs()
+    config.set_seed()
     run()

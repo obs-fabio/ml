@@ -4,6 +4,8 @@ import tqdm
 import typing
 import matplotlib.pyplot as plt
 
+import torch
+
 import labsonar_ml.synthesizers.gan.trainer as ml_trainer
 import labsonar_ml.model.base_model as ml_model
 import labsonar_ml.utils.utils as ml_utils
@@ -12,9 +14,9 @@ import app.config as config
 training_dict = {
     # train properties
     'id': config.Training.SPEC_GAN,
-    'n_epochs': 4096,
+    'n_epochs': 1024,
     'batch_size': 64,
-    'n_samples': 20,
+    'n_samples': 640,
     # generator properties
     'latent_space_dim': 128,
     'g_lr': 1e-3,
@@ -26,25 +28,26 @@ training_dict = {
     'd_internal_dims': [512, 256],
     'd_dropout': 0.2,
     # specialist discriminator properties
-    'sd_lr': 2e-4,
-    'sd_internal_dims': [512, 256],
+    'sd_lr': 1e-3,
+    'sd_internal_dims': [128, 16],
     'sd_dropout': 0.2,
-    'sd_reg_factor': 1,
+    'sd_reg_factor': 0,
 }
 
-sd_reg_factors = [1, 0.8, 0.6, 0.4, 0.2]
+sd_reg_factors = [1]
 
 
 def run(reset: bool = True,
         backup: bool = False,
         train: bool = True,
         evaluate: bool = True,
-        one_fold_only: bool = False,
-        one_class_only: bool = False,
+        one_fold_only: bool = True,
+        one_class_only: bool = True,
         skip_folds: typing.List[int] = [],
         skip_class: typing.List[str] = [],
         ):
     
+    torch.backends.cudnn.deterministic = True
     bins = config.get_specialist_selected_bins()
 
     for sd_reg_factor in sd_reg_factors:
@@ -52,8 +55,8 @@ def run(reset: bool = True,
             ml_utils.prepare_train_dir(config.get_result_dir([training_dict['id'], f"{sd_reg_factor}"]), backup=backup)
             # config.make_dirs()
 
-    for sd_reg_factor in sd_reg_factors:
-        training_dict['sd_reg_factor'] = sd_reg_factor
+    for sd_reg_factor in tqdm.tqdm(sd_reg_factors):
+        # training_dict['sd_reg_factor'] = sd_reg_factor
 
         for i_fold, (train_dataset, _, _) in tqdm.tqdm(enumerate(config.get_dataset_loro()), leave=False):
 
@@ -101,14 +104,15 @@ def run(reset: bool = True,
                     errors = trainer.fit(data = class_train_dataset, export_progress_file=training_sample_mp4)
                     trainer.save(trainer_file)
 
-                    epochs = range(128)
+                    n_points = 256
 
                     plt.figure(figsize=(10, 6))
                     for i in range(errors.shape[1]):
                         erro = errors[:,i].reshape(-1)
-                        n = training_dict['n_epochs']//128
-                        erro = erro.reshape(n, 128)
+                        n = training_dict['n_epochs']//n_points
+                        erro = erro.reshape(n, n_points)
                         erro = np.mean(erro, axis=0)
+                        epochs = range(0, training_dict['n_epochs'], n)
                         plt.plot(epochs, erro, label=f'Disc Error({i})')
                     plt.xlabel('Epochs')
                     plt.ylabel('Accuracy')
@@ -138,5 +142,5 @@ def run(reset: bool = True,
 
 if __name__ == "__main__":
     ml_utils.print_available_device()
-    config.make_dirs()
+    config.set_seed()
     run()
