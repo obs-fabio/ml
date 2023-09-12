@@ -60,19 +60,11 @@ def make_dirs():
 def get_dataset_loro():
     return ml_data.init_four_classes_dataset(get_data_dir()).get_loro()
 
-def set_seed():
-    seed = 42
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
 specialist_bin_selections = {
-	'A': [range(2,9), range(15,23), range(31,39), range(71,99)],
-	'B': [range(2,8), range(26,32), range(38,44), range(65,91)],
-	'C': [range(1,8), range(14,19), range(28,35), range(70,75)],
-	'D': [range(1,10), range(14,18), range(33,38), range(55,62)],
+	'A': [range(17,23), range(36,43), range(72,89), range(96,115)],
+	'B': [range(2,8), range(22,36), range(74,105)],
+	'C': [range(2,10), range(17,22), range(34,46), range(80,90)],
+	'D': [range(2,12), range(15,22), range(39,44), range(55,62)],
 }
 
 def get_specialist_selected_bins() -> typing.Dict:

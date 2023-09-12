@@ -12,30 +12,52 @@ import app.config as config
 training_dict = {
     # train properties
     'id': config.Training.SPEC_GAN,
-    'n_epochs': 4096,
+    'n_epochs': 2048,
     'batch_size': 64,
-    'n_samples': 20,
+    'n_samples': 512,
     # generator properties
     'latent_space_dim': 128,
-    'g_lr': 1e-3,
+    'g_lr': 5e-4,
     'g_n_cycles': 1,
-    'g_internal_dims': [256, 512],
+    'g_internal_dims': [16, 256],
     # discriminator properties
-    'd_lr': 1e-4,
+    'd_lr': 2e-4,
     'd_n_cycles': 1,
-    'd_internal_dims': [512, 256],
+    'd_internal_dims': [256, 16],
     'd_dropout': 0.2,
     # specialist discriminator properties
     'sd_lr': 2e-4,
-    'sd_internal_dims': [512, 256],
-    'sd_dropout': 0.2,
+    'sd_internal_dims': [64, 8],
+    'sd_dropout': 0.1,
     'sd_reg_factor': 1,
 }
+# training_dict = {
+#     # train properties
+#     'id': config.Training.SPEC_GAN,
+#     'n_epochs': 1024,
+#     'batch_size': 64,
+#     'n_samples': 400,
+#     # generator properties
+#     'latent_space_dim': 128,
+#     'g_lr': 5e-4,
+#     'g_n_cycles': 1,
+#     'g_internal_dims': [16, 256],
+#     # discriminator properties
+#     'd_lr': 2e-4,
+#     'd_n_cycles': 1,
+#     'd_internal_dims': [256, 16],
+#     'd_dropout': 0.2,
+#     # specialist discriminator properties
+#     'sd_lr': 0.5e-4,
+#     'sd_internal_dims': [128, 16],
+#     'sd_dropout': 0.2,
+#     'sd_reg_factor': 1,
+# }
 
-sd_reg_factors = [1, 0.8, 0.6, 0.4, 0.2]
+sd_reg_factors = [0, 0.2, 0.3, 0.1]
 
 
-def run(reset: bool = True,
+def run(reset: bool = False,
         backup: bool = False,
         train: bool = True,
         evaluate: bool = True,
@@ -50,7 +72,6 @@ def run(reset: bool = True,
     for sd_reg_factor in sd_reg_factors:
         if reset and train:
             ml_utils.prepare_train_dir(config.get_result_dir([training_dict['id'], f"{sd_reg_factor}"]), backup=backup)
-            # config.make_dirs()
 
     for sd_reg_factor in sd_reg_factors:
         training_dict['sd_reg_factor'] = sd_reg_factor
@@ -138,5 +159,5 @@ def run(reset: bool = True,
 
 if __name__ == "__main__":
     ml_utils.print_available_device()
-    config.make_dirs()
+    ml_utils.set_seed()
     run()

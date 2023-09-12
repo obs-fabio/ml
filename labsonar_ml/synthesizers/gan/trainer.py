@@ -151,51 +151,88 @@ class SPECGAN_trainer(GAN_trainer):
         Returns:
             typing.Tuple[float, float]: acurária do discriminador para amostras reais e falsas, acurária do discriminador especialista para amostras reais e falsas
         """
-        d_erros = super().discriminator_step(real_data)
+        #preparação dos dados
         n_samples = real_data.size(0)
         fake_data = self.generate_samples(n_samples)
 
-        self.sd_optimizador.zero_grad()
-
-        real_data = real_data[:, :, self.sd_bins, :]
-        fake_data = fake_data[:, :, self.sd_bins, :]
+        real_data_filt = torch.tensor(real_data[:, :, self.sd_bins, :].tolist())
+        fake_data_filt = torch.tensor(fake_data[:, :, self.sd_bins, :].tolist())
 
         real_data = real_data.to(self.device)
         fake_data = fake_data.to(self.device)
+        real_data_filt = real_data_filt.to(self.device)
+        fake_data_filt = fake_data_filt.to(self.device)
 
-        real_pred = self.sd_model(real_data)
+        #treinamento do discriminador
+        self.d_model.train()
+        self.d_optimizador.zero_grad()
+
+        real_pred = self.d_model(real_data)
         real_loss = self.loss_func(real_pred, ml_utils.make_targets(n_samples, 1, self.device))
-        real_loss.backward(retain_graph=True)
 
-        fake_pred = self.sd_model(fake_data)
+        fake_pred = self.d_model(fake_data)
         fake_loss = self.loss_func(fake_pred, ml_utils.make_targets(n_samples, 0, self.device))
-        fake_loss.backward(retain_graph=True)
+
+        loss = real_loss + fake_loss
+        loss.backward()
+
+        self.d_optimizador.step()
+        self.d_model.eval()
+
+        #treinamento do discriminador especialista
+        self.sd_model.train()
+        self.sd_optimizador.zero_grad()
+
+        real_pred_filt = self.sd_model(real_data_filt)
+        real_loss_filt = self.loss_func(real_pred_filt, ml_utils.make_targets(n_samples, 1, self.device))
+
+        fake_pred_filt = self.sd_model(fake_data_filt)
+        fake_loss_filt = self.loss_func(fake_pred_filt, ml_utils.make_targets(n_samples, 0, self.device))
+
+        loss = real_loss_filt + fake_loss_filt
+        loss.backward()
 
         self.sd_optimizador.step()
-
+        self.sd_model.eval()
+    
+        #avaliação da acurácia
         real_erros = np.sum(real_pred.detach().cpu().numpy()>0.5)
         fake_erros = np.sum(fake_pred.detach().cpu().numpy()<0.5)
 
-        return d_erros + [real_erros/n_samples, fake_erros/n_samples]
+        real_erros_filt = np.sum(real_pred_filt.detach().cpu().numpy()>0.5)
+        fake_erros_filt = np.sum(fake_pred_filt.detach().cpu().numpy()<0.5)
+
+        return [real_erros/n_samples, fake_erros/n_samples, real_erros_filt/n_samples, fake_erros_filt/n_samples]
 
     @overrides
     def generator_step(self, real_data: torch.Tensor):
         n_samples = real_data.size(0)
+
         fake_data = self.generate_samples(n_samples)
 
+        fake_data2 = self.generate_samples(n_samples)
+        fake_data_filt = fake_data2[:, :, self.sd_bins, :]
+        # fake_data_filt = torch.tensor(fake_data[:, :, self.sd_bins, :].tolist())
+
+        # fake_data = fake_data.to(self.device)
+        # fake_data_filt = fake_data_filt.to(self.device)
+
+        self.g_model.train()
         self.g_optimizador.zero_grad()
 
         d_pred = self.d_model(fake_data)
         d_loss = self.loss_func(d_pred, ml_utils.make_targets(n_samples, 1, self.device))
-        d_loss.backward(retain_graph=True)
+        # d_loss.backward()
 
-        fake_data = fake_data[:, :, self.sd_bins, :]
+        sd_pred = self.sd_model(fake_data_filt)
+        sd_loss = self.loss_func(sd_pred, ml_utils.make_targets(n_samples, 1, self.device))
+        # sd_loss.backward()
 
-        sd_pred = self.sd_model(fake_data)
-        sd_loss = self.loss_func(sd_pred, ml_utils.make_targets(n_samples, 1, self.device)) * self.sd_reg_factor
-        sd_loss.backward(retain_graph=True)
+        loss = d_loss + sd_loss * self.sd_reg_factor
+        loss.backward()
 
         self.g_optimizador.step()
+        self.g_model.eval()
 
     @overrides
     def train_init(self, image_dim: typing.List[float]):

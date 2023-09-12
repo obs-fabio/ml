@@ -226,7 +226,7 @@ if __name__ == '__main__':
 
             lengths.append(len(train.get_files(class_id, None)))
 
-        fold_max_samples.append(np.max(lengths))
+        fold_max_samples.append(np.min(lengths))
 
         print("\tValidação: ")
         for class_id in val.get_classes():

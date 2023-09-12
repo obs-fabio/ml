@@ -62,7 +62,9 @@ class Base_trainer(ml_model.Serializable_model, abc.ABC):
         image = data.__getitem__(0)[0]
         self.image_dim = list(image.shape)
 
+        ml_utils.set_seed()
         self.train_init(self.image_dim)
+        ml_utils.set_seed()
 
         self.error_list = []
         training_images = []
